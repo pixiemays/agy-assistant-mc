@@ -202,6 +202,8 @@ class AgentService:
             "--output-format",
             "stream-json",
             "--disable-slash-commands",
+            "--print-timeout",
+            "90s",
         ]
         if self._agy_conversation_id:
             cmd.extend(["--conversation", self._agy_conversation_id])
@@ -270,13 +272,14 @@ class AgentService:
                         yield {"type": "token", "content": str(res["response"])}
 
             rc = await proc.wait()
-            if rc != 0 and not emitted_any:
+            if not emitted_any:
                 stderr_text = ""
                 if proc.stderr:
                     stderr_text = (await proc.stderr.read()).decode("utf-8", errors="replace").strip()
+                logger.warning("agy CLI returned no tokens (rc=%d, stderr=%s)", rc, stderr_text[:300])
                 yield {
                     "type": "error",
-                    "message": stderr_text[:300] or f"agy CLI exited with code {rc}",
+                    "message": stderr_text[:300] or f"agy CLI returned no text (exit code {rc})",
                 }
                 return
 

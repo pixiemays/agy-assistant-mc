@@ -33,11 +33,33 @@ data class GameReference(
 object ReferenceExtractor {
     const val CLICK_PREFIX = "agyref://"
 
-    fun resolve(raw: String): GameReference? {
+    private val nameIndex: Map<String, ResourceLocation> by lazy {
+        val map = HashMap<String, ResourceLocation>(4096)
+        for (loc in BuiltInRegistries.ITEM.keySet()) {
+            val item = BuiltInRegistries.ITEM.get(loc)
+            if (item == Items.AIR) continue
+            val pathName = loc.path.replace('_', ' ').lowercase()
+            map.putIfAbsent(pathName, loc)
+            val display = runCatching { ItemStack(item).hoverName.string.trim().lowercase() }.getOrNull()
+            if (!display.isNullOrBlank()) {
+                map.putIfAbsent(display, loc)
+            }
+        }
+        map
+    }
+
+    fun resolve(raw: String, allowNameLookup: Boolean = false): GameReference? {
         val cleaned = raw.trim().trimEnd('.', ',', ')', ']', ';')
-        if (!cleaned.contains(':')) return null
-        val loc = ResourceLocation.tryParse(cleaned) ?: return null
-        return resolve(loc)
+        if (cleaned.isEmpty()) return null
+        if (cleaned.contains(':')) {
+            val loc = ResourceLocation.tryParse(cleaned) ?: return null
+            return resolve(loc)
+        }
+        if (allowNameLookup && cleaned.length in 3..48) {
+            val loc = nameIndex[cleaned.lowercase()] ?: return null
+            return resolve(loc)
+        }
+        return null
     }
 
     fun resolve(loc: ResourceLocation): GameReference? {

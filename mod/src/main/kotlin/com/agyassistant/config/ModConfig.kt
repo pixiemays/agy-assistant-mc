@@ -1,6 +1,7 @@
 package com.agyassistant.config
 
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonParser
 import net.neoforged.fml.loading.FMLPaths
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -44,7 +45,15 @@ object ModConfig {
             Files.createDirectories(configDir)
             if (Files.exists(configFile)) {
                 val raw = Files.readString(configFile)
-                data = gson.fromJson(raw, ModConfigData::class.java) ?: ModConfigData()
+                val defaultsObj = gson.toJsonTree(ModConfigData()).asJsonObject
+                val fileObj = runCatching { JsonParser.parseString(raw).asJsonObject }.getOrNull()
+                if (fileObj != null) {
+                    for ((k, v) in fileObj.entrySet()) {
+                        if (!v.isJsonNull) defaultsObj.add(k, v)
+                    }
+                }
+                data = gson.fromJson(defaultsObj, ModConfigData::class.java) ?: ModConfigData()
+                save()
             } else {
                 save()
             }

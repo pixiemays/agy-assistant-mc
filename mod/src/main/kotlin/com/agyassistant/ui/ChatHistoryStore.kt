@@ -140,6 +140,11 @@ object ChatHistoryStore {
                 isStreaming = false
                 activeFuture = null
                 activeAssistantMsg = null
+                if (!receivedAnyToken) {
+                    assistantMsg.content.clear()
+                    val errText = Component.translatable("screen.agyassistant.err.request_failed", "Empty response (try Retry/Reset)").string
+                    add(ChatRole.ERROR, errText)
+                }
                 activeScreen?.onStreamFinished()
             }
         }
