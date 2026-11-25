@@ -76,7 +76,7 @@ class RichMessageComponent(
     private val bareIdRegex = Regex("^([a-z0-9_.-]+:[a-z0-9_/.-]+)")
     private val mdLinkRegex = Regex("^\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)")
     private val bareUrlRegex = Regex("^(https?://[^\\s)\\]>]+)")
-    private val hrRegex = Regex("^([-*_])\\s*\\1\\s*\\1[\\s\\1]*$")
+    private val hrRegex = Regex("^([-*_])(?:\\s*\\1){2,}$")
     private val tableSepRegex = Regex("^\\|?[\\s:]*-{2,}[\\s:]*(\\|[\\s:]*-{2,}[\\s:]*)*\\|?$")
     private val orderedListRegex = Regex("^(\\s*)(\\d+\\.)\\s+(.*)$")
     private val bulletListRegex = Regex("^(\\s*)[-*+]\\s+(.*)$")
