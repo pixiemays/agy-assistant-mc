@@ -15,8 +15,9 @@ bridge/__pycache__/
 bridge/**/__pycache__/
 bridge/.pytest_cache/
 
-# Secrets & logs
+# Secrets, logs & local notes
 .env
 .env.*
 *.log
 config.json
+project_plan.md
