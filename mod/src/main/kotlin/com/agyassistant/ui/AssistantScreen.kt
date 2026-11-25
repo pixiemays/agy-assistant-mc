@@ -51,7 +51,7 @@ class AssistantScreen(
     private var sendButton: ButtonComponent? = null
 
     private var bridgeOnline = false
-    private var activeAssistantLabel: ScaledLabelComponent? = null
+    private var activeAssistantBody: RichMessageComponent? = null
     private var thinkingTick = 0
     private var historyCursor = -1
     private var pendingScrollToBottom = false
@@ -207,7 +207,7 @@ class AssistantScreen(
             if (thinkingTick % 6 == 0) {
                 val dots = ".".repeat((thinkingTick / 6) % 3 + 1)
                 val base = Component.translatable("screen.agyassistant.msg.thinking").string
-                activeAssistantLabel?.text(Component.literal("$base$dots"))
+                activeAssistantBody?.markdown("$base$dots")
             }
         }
     }
@@ -294,7 +294,21 @@ class AssistantScreen(
     private fun rebuildChips() {
         val bar = chipsBar ?: return
         bar.clearChildren()
-        ContextChipComponent.populateChips(bar, context, removable = true) {
+        ContextChipComponent.populateChips(
+            bar = bar,
+            ctx = context,
+            removable = true,
+            onAttachItem = { item ->
+                context.item = item
+                rebuildChips()
+                focusPromptInput()
+            },
+            onAttachTarget = { target ->
+                context.target = target
+                rebuildChips()
+                focusPromptInput()
+            },
+        ) {
             rebuildChips()
             focusPromptInput()
         }
@@ -381,11 +395,11 @@ class AssistantScreen(
     }
 
     internal fun onStreamToken(msg: ChatMessage) {
-        val label = activeAssistantLabel
-        if (label != null) {
-            label.color(0xF8FAFC)
+        val bodyComp = activeAssistantBody
+        if (bodyComp != null) {
+            bodyComp.color(0xF8FAFC)
             val parsed = QuickOptionsParser.parse(msg.content.toString())
-            label.text(MarkdownFormatter.format(parsed.displayText))
+            bodyComp.markdown(parsed.displayText)
             scrollToBottom()
         } else {
             rebuildMessageFeed()
@@ -394,20 +408,15 @@ class AssistantScreen(
 
     internal fun onStreamFinished() {
         syncSendButtonState()
-        activeAssistantLabel = null
+        activeAssistantBody = null
         rebuildMessageFeed()
         focusPromptInput()
     }
 
     private fun rebuildMessageFeed() {
-        rebuildMessageFeedAndReturnLastLabel()
-    }
-
-    private fun rebuildMessageFeedAndReturnLastLabel(): ScaledLabelComponent? {
-        val container = messagesContainer ?: return null
+        val container = messagesContainer ?: return
         container.clearChildren()
 
-        var lastBodyLabel: ScaledLabelComponent? = null
         val totalMsgs = ChatHistoryStore.messages.size
         for ((index, msg) in ChatHistoryStore.messages.withIndex()) {
             val isLastMessage = index == totalMsgs - 1
@@ -521,21 +530,36 @@ class AssistantScreen(
                 }
             }
 
-            val bodyComponent = if (parsedReply != null) {
-                MarkdownFormatter.format(parsedReply.displayText)
-            } else {
-                Component.literal(msg.content.toString())
+            card.child(headerRow)
+            if (msg.attachments != null && !msg.attachments.isEmpty()) {
+                val attachRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
+                attachRow.gap(3)
+                ContextChipComponent.populateChips(
+                    bar = attachRow,
+                    ctx = msg.attachments,
+                    removable = false,
+                    onAttachItem = { item ->
+                        context.item = item
+                        rebuildChips()
+                        focusPromptInput()
+                    },
+                    onAttachTarget = { target ->
+                        context.target = target
+                        rebuildChips()
+                        focusPromptInput()
+                    },
+                )
+                card.child(attachRow)
             }
-            val body = ScaledLabelComponent(
-                text = bodyComponent,
-                scale = 0.85f,
-                defaultColor = if (isThinkingMsg) 0x94A3B8 else 0xF8FAFC,
-                shadow = false,
-            )
-            body.horizontalSizing(Sizing.fill(100))
 
             if (msg.role == ChatRole.ASSISTANT) {
-                body.onGameRefClick = { ref, button, shift ->
+                val richBody = RichMessageComponent(
+                    markdown = parsedReply?.displayText ?: msg.content.toString(),
+                    scale = 0.85f,
+                    defaultColor = if (isThinkingMsg) 0x94A3B8 else 0xF8FAFC,
+                )
+                richBody.horizontalSizing(Sizing.fill(100))
+                richBody.onGameRefClick = { ref, button, shift ->
                     ReferenceExtractor.handleClick(
                         ref = ref,
                         button = button,
@@ -552,23 +576,23 @@ class AssistantScreen(
                         },
                     )
                 }
-                body.onUrlClick = { url ->
+                richBody.onUrlClick = { url ->
                     ConfirmLinkScreen.confirmLinkNow(this, url)
                 }
+                if (msg === ChatHistoryStore.activeAssistantMsg) {
+                    activeAssistantBody = richBody
+                }
+                card.child(richBody)
+            } else {
+                val body = ScaledLabelComponent(
+                    text = Component.literal(msg.content.toString()),
+                    scale = 0.85f,
+                    defaultColor = 0xF8FAFC,
+                    shadow = false,
+                )
+                body.horizontalSizing(Sizing.fill(100))
+                card.child(body)
             }
-
-            if (msg === ChatHistoryStore.activeAssistantMsg) {
-                activeAssistantLabel = body
-            }
-
-            card.child(headerRow)
-            if (msg.attachments != null && !msg.attachments.isEmpty()) {
-                val attachRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
-                attachRow.gap(3)
-                ContextChipComponent.populateChips(attachRow, msg.attachments, removable = false)
-                card.child(attachRow)
-            }
-            card.child(body)
 
             if (msg.role == ChatRole.ASSISTANT) {
                 if (!ChatHistoryStore.isStreaming || msg !== ChatHistoryStore.activeAssistantMsg) {
@@ -603,11 +627,9 @@ class AssistantScreen(
             }
 
             container.child(card)
-            lastBodyLabel = body
         }
 
         scrollToBottom()
-        return lastBodyLabel
     }
 
     private fun scrollToBottom() {

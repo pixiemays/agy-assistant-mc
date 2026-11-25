@@ -1,14 +1,19 @@
 package com.agyassistant.ui
 
 import com.agyassistant.context.AttachedContext
+import com.agyassistant.context.ItemInfo
+import com.agyassistant.context.TargetInfo
+import io.wispforest.owo.ui.component.ButtonComponent
 import io.wispforest.owo.ui.component.Components
 import io.wispforest.owo.ui.container.Containers
 import io.wispforest.owo.ui.container.FlowLayout
 import io.wispforest.owo.ui.core.Component as OwoComponent
+import io.wispforest.owo.ui.core.CursorStyle
 import io.wispforest.owo.ui.core.Insets
 import io.wispforest.owo.ui.core.Sizing
 import io.wispforest.owo.ui.core.Surface
 import io.wispforest.owo.ui.core.VerticalAlignment
+import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
 import net.minecraft.world.item.ItemStack
@@ -22,10 +27,15 @@ object ContextChipComponent {
         bgArgb: Int,
         borderArgb: Int,
         icon: ItemStack?,
+        gameRef: GameReference? = null,
+        onAttachItem: ((ItemInfo) -> Unit)? = null,
+        onAttachTarget: ((TargetInfo) -> Unit)? = null,
         onRemove: (() -> Unit)? = null,
     ): FlowLayout {
         val chip = Containers.horizontalFlow(Sizing.content(), Sizing.content())
-        chip.surface(Surface.flat(bgArgb).and(Surface.outline(borderArgb)))
+        val normalSurface = Surface.flat(bgArgb).and(Surface.outline(borderArgb))
+        val hoverSurface = Surface.flat(bgArgb).and(Surface.outline(0xFFF8FAFC.toInt()))
+        chip.surface(normalSurface)
         chip.padding(Insets.of(2, 2, 4, 4))
         chip.gap(4)
         chip.verticalAlignment(VerticalAlignment.CENTER)
@@ -46,10 +56,26 @@ object ContextChipComponent {
 
         if (onRemove != null) {
             val removeBtn = Components.button(Component.literal("×")) { onRemove() }
-            removeBtn.renderer(io.wispforest.owo.ui.component.ButtonComponent.Renderer.flat(0x00000000, 0x66FFFFFF, 0x00000000))
+            removeBtn.renderer(ButtonComponent.Renderer.flat(0x00000000, 0x66FFFFFF, 0x00000000))
             val removeBtnComp = removeBtn as OwoComponent
             removeBtnComp.sizing(Sizing.fixed(11), Sizing.fixed(11))
             chip.child(removeBtnComp)
+        }
+
+        if (gameRef != null) {
+            chip.cursorStyle(CursorStyle.HAND)
+            chip.tooltip(ReferenceExtractor.buildTooltip(gameRef))
+            chip.mouseEnter().subscribe { chip.surface(hoverSurface) }
+            chip.mouseLeave().subscribe { chip.surface(normalSurface) }
+            chip.mouseDown().subscribe { _, _, button ->
+                ReferenceExtractor.handleClick(
+                    ref = gameRef,
+                    button = button,
+                    shiftDown = Screen.hasShiftDown(),
+                    onAttachItem = { item -> onAttachItem?.invoke(item) },
+                    onAttachTarget = { target -> onAttachTarget?.invoke(target) },
+                )
+            }
         }
 
         return chip
@@ -59,6 +85,8 @@ object ContextChipComponent {
         bar: FlowLayout,
         ctx: AttachedContext,
         removable: Boolean,
+        onAttachItem: ((ItemInfo) -> Unit)? = null,
+        onAttachTarget: ((TargetInfo) -> Unit)? = null,
         onChanged: (() -> Unit)? = null,
     ) {
         ctx.target?.let { target ->
@@ -67,6 +95,9 @@ object ContextChipComponent {
             val cat = Component.translatable(catKey).string
             val cleanName = cleanDisplayName(target.displayName, target.id)
             val fallbackIcon = if (isEntity) ItemStack(Items.NAME_TAG) else ItemStack(Items.GRASS_BLOCK)
+            val resolvedRef = ReferenceExtractor.resolve(target.id)?.let { base ->
+                if (target.iconStack != null) base.copy(stack = target.iconStack, displayName = cleanName) else base
+            }
 
             bar.child(
                 create(
@@ -76,6 +107,9 @@ object ContextChipComponent {
                     bgArgb = if (isEntity) 0xCC134E4A.toInt() else 0xCC1E3A5F.toInt(),
                     borderArgb = if (isEntity) 0xFF2DD4BF.toInt() else 0xFF3B82F6.toInt(),
                     icon = target.iconStack ?: fallbackIcon,
+                    gameRef = resolvedRef,
+                    onAttachItem = onAttachItem,
+                    onAttachTarget = onAttachTarget,
                     onRemove = if (removable) {
                         {
                             ctx.target = null
@@ -90,6 +124,9 @@ object ContextChipComponent {
             val cat = Component.translatable("screen.agyassistant.cat.item").string
             val baseName = cleanDisplayName(item.displayName, item.id)
             val displayName = if (item.count > 1) "$baseName ×${item.count}" else baseName
+            val resolvedRef = ReferenceExtractor.resolve(item.id)?.let { base ->
+                if (item.iconStack != null) base.copy(stack = item.iconStack, displayName = baseName) else base
+            }
 
             bar.child(
                 create(
@@ -99,6 +136,9 @@ object ContextChipComponent {
                     bgArgb = 0xCC3B235A.toInt(),
                     borderArgb = 0xFFA855F7.toInt(),
                     icon = item.iconStack ?: ItemStack(Items.CHEST),
+                    gameRef = resolvedRef,
+                    onAttachItem = onAttachItem,
+                    onAttachTarget = onAttachTarget,
                     onRemove = if (removable) {
                         {
                             ctx.item = null
