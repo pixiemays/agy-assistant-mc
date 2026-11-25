@@ -39,5 +39,22 @@
   "screen.agyassistant.btn.copy_short": "Copy",
   "screen.agyassistant.btn.quote_short": "Quote",
   "screen.agyassistant.btn.edit_short": "Edit",
-  "screen.agyassistant.btn.retry_short": "Retry"
+  "screen.agyassistant.btn.retry_short": "Retry",
+  "screen.agyassistant.settings.provider.antigravity": "Provider: Antigravity (SDK / agy CLI)",
+  "screen.agyassistant.settings.provider.opencode": "Provider: OpenCode CLI (via Bridge)",
+  "screen.agyassistant.settings.provider.openai": "Provider: OpenAI / Qwen / Ollama (Direct, no .exe)",
+  "screen.agyassistant.settings.openai_url": "Base URL (OpenRouter / Groq / Qwen / Ollama):",
+  "screen.agyassistant.settings.openai_key": "API Key (empty for Ollama):",
+  "screen.agyassistant.settings.openai_model": "Model (e.g. qwen/qwen3-235b-a22b:free):",
+  "screen.agyassistant.settings.bridge_host": "Bridge Host:",
+  "screen.agyassistant.settings.bridge_port": "Port:",
+  "screen.agyassistant.settings.gemini_key": "Gemini API Key (empty = use agy CLI):",
+  "screen.agyassistant.settings.bridge_model": "Bridge / OpenCode Model override (optional):",
+  "screen.agyassistant.settings.extra_prompt": "Extra system prompt (optional):",
+  "screen.agyassistant.settings.auto_start": "Auto-start agy-bridge",
+  "screen.agyassistant.settings.read_dir": "Read-only access to modpack dir (config, kubejs, logs)",
+  "screen.agyassistant.settings.default_shot": "Attach screenshot by default",
+  "screen.agyassistant.settings.clarify_vague": "Clarify vague questions (quick reply buttons)",
+  "screen.agyassistant.settings.cancel": "Cancel",
+  "screen.agyassistant.settings.save": "Save"
 }

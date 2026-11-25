@@ -7,6 +7,7 @@ import io.wispforest.owo.ui.component.Components
 import io.wispforest.owo.ui.container.Containers
 import io.wispforest.owo.ui.container.FlowLayout
 import io.wispforest.owo.ui.container.ScrollContainer
+import io.wispforest.owo.ui.core.Color
 import io.wispforest.owo.ui.core.Component as OwoComponent
 import io.wispforest.owo.ui.core.HorizontalAlignment
 import io.wispforest.owo.ui.core.Insets
@@ -25,10 +26,10 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
     override fun createAdapter(): OwoUIAdapter<FlowLayout> =
         OwoUIAdapter.create(this, Containers::verticalFlow)
 
-    private fun providerLabel(p: String): String = when (p) {
-        "opencode" -> "Provider: OpenCode CLI (via Bridge)"
-        "openai_compat" -> "Provider: OpenAI / Qwen / Ollama (Direct, no .exe)"
-        else -> "Provider: Antigravity (SDK / agy CLI)"
+    private fun providerComponent(p: String): Component = when (p) {
+        "opencode" -> Component.translatable("screen.agyassistant.settings.provider.opencode")
+        "openai_compat" -> Component.translatable("screen.agyassistant.settings.provider.openai")
+        else -> Component.translatable("screen.agyassistant.settings.provider.antigravity")
     }
 
     override fun build(rootComponent: FlowLayout) {
@@ -55,16 +56,16 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
 
         // Scrollable form body
         val form = Containers.verticalFlow(Sizing.fill(100), Sizing.content())
-        form.padding(Insets.of(4))
+        form.padding(Insets.of(4, 4, 4, 6))
         form.gap(5)
 
-        val providerBtn = Components.button(Component.literal(providerLabel(selectedProvider))) { btn ->
+        val providerBtn = Components.button(providerComponent(selectedProvider)) { btn ->
             selectedProvider = when (selectedProvider) {
                 "bridge" -> "opencode"
                 "opencode" -> "openai_compat"
                 else -> "bridge"
             }
-            btn.setMessage(Component.literal(providerLabel(selectedProvider)))
+            btn.setMessage(providerComponent(selectedProvider))
         }.apply {
             renderer(accentBtn)
             (this as OwoComponent).sizing(Sizing.fill(100), Sizing.fixed(18))
@@ -85,11 +86,11 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
             (this as OwoComponent).verticalSizing(Sizing.fixed(16))
         }
 
-        form.child(Components.label(Component.literal("OpenAI / OpenRouter / Groq / Qwen / Ollama Base URL:")))
+        form.child(Components.label(Component.translatable("screen.agyassistant.settings.openai_url")).shadow(false))
         form.child(openaiUrlInput as OwoComponent)
-        form.child(Components.label(Component.literal("OpenAI-compat API Key (empty for Ollama):")))
+        form.child(Components.label(Component.translatable("screen.agyassistant.settings.openai_key")).shadow(false))
         form.child(openaiKeyInput as OwoComponent)
-        form.child(Components.label(Component.literal("OpenAI-compat Model (e.g. qwen/qwen3-235b-a22b:free):")))
+        form.child(Components.label(Component.translatable("screen.agyassistant.settings.openai_model")).shadow(false))
         form.child(openaiModelInput as OwoComponent)
 
         // Bridge section (Antigravity / OpenCode)
@@ -116,28 +117,28 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
 
         val hostCol = Containers.verticalFlow(Sizing.fill(66), Sizing.content()).apply {
             gap(2)
-            child(Components.label(Component.literal("Bridge Host:")))
+            child(Components.label(Component.translatable("screen.agyassistant.settings.bridge_host")).shadow(false))
             child(hostInput as OwoComponent)
         }
         val portCol = Containers.verticalFlow(Sizing.fill(32), Sizing.content()).apply {
             gap(2)
-            child(Components.label(Component.literal("Port:")))
+            child(Components.label(Component.translatable("screen.agyassistant.settings.bridge_port")).shadow(false))
             child(portInput as OwoComponent)
         }
         hostPortRow.child(hostCol)
         hostPortRow.child(portCol)
 
-        val autoStartCheck = Components.checkbox(Component.literal("Auto-start agy-bridge")).checked(cfg.autoStartBridge)
-        val readDirCheck = Components.checkbox(Component.literal("Read-only access to modpack dir")).checked(cfg.allowGameDirRead)
-        val defaultShotCheck = Components.checkbox(Component.literal("Attach screenshot by default")).checked(cfg.attachScreenshotByDefault)
-        val clarifyCheck = Components.checkbox(Component.literal("Clarify vague questions (quick reply buttons)")).checked(cfg.clarifyVagueQuestions)
+        val autoStartCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.auto_start")).checked(cfg.autoStartBridge)
+        val readDirCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.read_dir")).checked(cfg.allowGameDirRead)
+        val defaultShotCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.default_shot")).checked(cfg.attachScreenshotByDefault)
+        val clarifyCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.clarify_vague")).checked(cfg.clarifyVagueQuestions)
 
         form.child(hostPortRow)
-        form.child(Components.label(Component.literal("Gemini API Key (empty = use agy CLI):")))
+        form.child(Components.label(Component.translatable("screen.agyassistant.settings.gemini_key")).shadow(false))
         form.child(apiKeyInput as OwoComponent)
-        form.child(Components.label(Component.literal("Bridge / OpenCode Model override (optional):")))
+        form.child(Components.label(Component.translatable("screen.agyassistant.settings.bridge_model")).shadow(false))
         form.child(modelInput as OwoComponent)
-        form.child(Components.label(Component.literal("Extra system prompt (optional):")))
+        form.child(Components.label(Component.translatable("screen.agyassistant.settings.extra_prompt")).shadow(false))
         form.child(extraPromptInput as OwoComponent)
         form.child(autoStartCheck as OwoComponent)
         form.child(readDirCheck as OwoComponent)
@@ -145,7 +146,8 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         form.child(clarifyCheck as OwoComponent)
 
         val scroll = Containers.verticalScroll(Sizing.fill(100), Sizing.expand(100), form)
-        scroll.scrollbar(ScrollContainer.Scrollbar.vanillaFlat())
+        scroll.scrollbar(ScrollContainer.Scrollbar.flat(Color.ofArgb(0x8864748B.toInt())))
+        scroll.scrollbarThiccness(4)
         panel.child(scroll)
 
         // Fixed footer buttons
@@ -153,14 +155,14 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         btnRow.gap(8)
         btnRow.horizontalAlignment(HorizontalAlignment.RIGHT)
 
-        btnRow.child(Components.button(Component.literal("Cancel")) {
+        btnRow.child(Components.button(Component.translatable("screen.agyassistant.settings.cancel")) {
             Minecraft.getInstance().setScreen(parent)
         }.apply {
             renderer(flatBtn)
-            (this as OwoComponent).sizing(Sizing.fixed(64), Sizing.fixed(16))
+            (this as OwoComponent).sizing(Sizing.fixed(72), Sizing.fixed(16))
         } as OwoComponent)
 
-        btnRow.child(Components.button(Component.literal("Save")) {
+        btnRow.child(Components.button(Component.translatable("screen.agyassistant.settings.save")) {
             ModConfig.update {
                 provider = selectedProvider
                 openaiBaseUrl = openaiUrlInput.value.trim()
@@ -179,7 +181,7 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
             Minecraft.getInstance().setScreen(parent)
         }.apply {
             renderer(accentBtn)
-            (this as OwoComponent).sizing(Sizing.fixed(64), Sizing.fixed(16))
+            (this as OwoComponent).sizing(Sizing.fixed(72), Sizing.fixed(16))
         } as OwoComponent)
 
         panel.child(btnRow)

@@ -39,5 +39,22 @@
   "screen.agyassistant.btn.copy_short": "Копир.",
   "screen.agyassistant.btn.quote_short": "Цитата",
   "screen.agyassistant.btn.edit_short": "Изм.",
-  "screen.agyassistant.btn.retry_short": "Повтор"
+  "screen.agyassistant.btn.retry_short": "Повтор",
+  "screen.agyassistant.settings.provider.antigravity": "Провайдер: Antigravity (SDK / agy CLI)",
+  "screen.agyassistant.settings.provider.opencode": "Провайдер: OpenCode CLI (через мост)",
+  "screen.agyassistant.settings.provider.openai": "Провайдер: OpenAI / Qwen / Ollama (напрямую, без .exe)",
+  "screen.agyassistant.settings.openai_url": "Base URL (OpenRouter / Groq / Qwen / Ollama):",
+  "screen.agyassistant.settings.openai_key": "API-ключ (пусто для Ollama):",
+  "screen.agyassistant.settings.openai_model": "Модель (напр. qwen/qwen3-235b-a22b:free):",
+  "screen.agyassistant.settings.bridge_host": "Хост моста:",
+  "screen.agyassistant.settings.bridge_port": "Порт:",
+  "screen.agyassistant.settings.gemini_key": "Gemini API-ключ (пусто = через agy CLI):",
+  "screen.agyassistant.settings.bridge_model": "Модель для моста / OpenCode (опционально):",
+  "screen.agyassistant.settings.extra_prompt": "Доп. системный промпт (опционально):",
+  "screen.agyassistant.settings.auto_start": "Автозапуск agy-bridge",
+  "screen.agyassistant.settings.read_dir": "Read-only доступ к папке сборки (config, kubejs, logs)",
+  "screen.agyassistant.settings.default_shot": "Прикреплять скриншот по умолчанию",
+  "screen.agyassistant.settings.clarify_vague": "Уточнять расплывчатые вопросы (кнопки вариантов)",
+  "screen.agyassistant.settings.cancel": "Отмена",
+  "screen.agyassistant.settings.save": "Сохранить"
 }
