@@ -6,6 +6,7 @@ import com.agyassistant.context.ItemStackSerializer
 import com.agyassistant.context.JeiCompat
 import com.agyassistant.context.TargetInfo
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.ConfirmLinkScreen
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
@@ -16,6 +17,8 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.SpawnEggItem
 import net.minecraft.world.item.TooltipFlag
 import net.neoforged.fml.ModList
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 enum class RefKind {
     ITEM,
@@ -32,37 +35,72 @@ data class GameReference(
 
 object ReferenceExtractor {
     const val CLICK_PREFIX = "agyref://"
+    private val NULL_SENTINEL = Any()
 
-    private val nameIndex: Map<String, ResourceLocation> by lazy {
-        val map = HashMap<String, ResourceLocation>(4096)
-        for (loc in BuiltInRegistries.ITEM.keySet()) {
-            val item = BuiltInRegistries.ITEM.get(loc)
-            if (item == Items.AIR) continue
-            val pathName = loc.path.replace('_', ' ').lowercase()
-            map.putIfAbsent(pathName, loc)
-            val display = runCatching { ItemStack(item).hoverName.string.trim().lowercase() }.getOrNull()
-            if (!display.isNullOrBlank()) {
-                map.putIfAbsent(display, loc)
+    private val rawCache = java.util.concurrent.ConcurrentHashMap<String, Any>()
+    private val locCache = java.util.concurrent.ConcurrentHashMap<ResourceLocation, Any>()
+
+    @Volatile
+    private var nameIndex: Map<String, ResourceLocation>? = null
+    private val indexBuilding = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun warmUpNameIndexAsync() {
+        if (nameIndex != null || !indexBuilding.compareAndSet(false, true)) return
+        val thread = Thread({
+            try {
+                val map = HashMap<String, ResourceLocation>(4096)
+                for (loc in BuiltInRegistries.ITEM.keySet()) {
+                    val item = BuiltInRegistries.ITEM.get(loc)
+                    if (item == Items.AIR) continue
+                    val pathName = loc.path.replace('_', ' ').lowercase()
+                    map.putIfAbsent(pathName, loc)
+                    val display = runCatching { item.description.string.trim().lowercase() }.getOrNull()
+                    if (!display.isNullOrBlank()) {
+                        map.putIfAbsent(display, loc)
+                    }
+                }
+                nameIndex = map
+                rawCache.clear()
+            } catch (_: Throwable) {
+                indexBuilding.set(false)
             }
-        }
-        map
+        }, "agy-ref-index")
+        thread.isDaemon = true
+        thread.start()
     }
 
     fun resolve(raw: String, allowNameLookup: Boolean = false): GameReference? {
         val cleaned = raw.trim().trimEnd('.', ',', ')', ']', ';')
         if (cleaned.isEmpty()) return null
-        if (cleaned.contains(':')) {
-            val loc = ResourceLocation.tryParse(cleaned) ?: return null
-            return resolve(loc)
+        val cacheKey = if (allowNameLookup) "n:$cleaned" else "i:$cleaned"
+        rawCache[cacheKey]?.let { return if (it === NULL_SENTINEL) null else it as GameReference }
+
+        val resolved = if (cleaned.contains(':')) {
+            val loc = ResourceLocation.tryParse(cleaned)
+            if (loc != null) resolve(loc) else null
+        } else if (allowNameLookup && cleaned.length in 3..48) {
+            val idx = nameIndex
+            if (idx == null) {
+                warmUpNameIndexAsync()
+                return null
+            }
+            val loc = idx[cleaned.lowercase()]
+            if (loc != null) resolve(loc) else null
+        } else {
+            null
         }
-        if (allowNameLookup && cleaned.length in 3..48) {
-            val loc = nameIndex[cleaned.lowercase()] ?: return null
-            return resolve(loc)
-        }
-        return null
+        rawCache[cacheKey] = resolved ?: NULL_SENTINEL
+        return resolved
     }
 
     fun resolve(loc: ResourceLocation): GameReference? {
+        locCache[loc]?.let { return if (it === NULL_SENTINEL) null else it as GameReference }
+        val resolved = resolveUncached(loc)
+        locCache[loc] = resolved ?: NULL_SENTINEL
+        return resolved
+    }
+
+    private fun resolveUncached(loc: ResourceLocation): GameReference? {
         if (BuiltInRegistries.ITEM.containsKey(loc)) {
             val item = BuiltInRegistries.ITEM.get(loc)
             if (item != Items.AIR) {
@@ -141,7 +179,43 @@ object ReferenceExtractor {
             }
             return true
         }
+        if (button == 2) {
+            val url = buildWikiUrl(ref)
+            val screen = Minecraft.getInstance().screen
+            if (screen != null) {
+                ConfirmLinkScreen.confirmLinkNow(screen, url)
+            } else {
+                Minecraft.getInstance().keyboardHandler.clipboard = url
+            }
+            return true
+        }
         return false
+    }
+
+    fun buildWikiUrl(ref: GameReference): String {
+        val ns = ref.id.namespace
+        val pathWords = ref.id.path.replace('_', ' ')
+        fun enc(s: String): String = URLEncoder.encode(s, StandardCharsets.UTF_8)
+
+        if (ns == "minecraft") {
+            val lang = runCatching { Minecraft.getInstance().languageManager.selected }.getOrDefault("en_us")
+            return if (lang.startsWith("ru", ignoreCase = true)) {
+                "https://ru.minecraft.wiki/w/Special:Search?search=${enc(ref.displayName)}&go=Go"
+            } else {
+                "https://minecraft.wiki/w/Special:Search?search=${enc(pathWords)}&go=Go"
+            }
+        }
+        return when (ns) {
+            "create" -> "https://create.fandom.com/wiki/Special:Search?query=${enc(pathWords)}"
+            "mekanism", "mekanismgenerators", "mekanismtools", "mekanismadditions" ->
+                "https://wiki.aidancbrady.com/wiki/Special:Search?search=${enc(pathWords)}&go=Go"
+            else -> {
+                val modName = ModList.get().getModContainerById(ns)
+                    .map { it.modInfo.displayName }
+                    .orElse(ns.replace('_', ' '))
+                "https://www.google.com/search?q=${enc("$modName $pathWords minecraft wiki")}"
+            }
+        }
     }
 
     private fun openRecipes(stack: ItemStack): Boolean {

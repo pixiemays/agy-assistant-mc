@@ -22,9 +22,15 @@ data class ChatMessage(
     val attachments: AttachedContext? = null,
 )
 
+data class QueuedPrompt(
+    val text: String,
+    val context: AttachedContext,
+)
+
 object ChatHistoryStore {
     val messages: MutableList<ChatMessage> = mutableListOf()
     val inputHistory: MutableList<String> = mutableListOf()
+    val queuedPrompts: MutableList<QueuedPrompt> = mutableListOf()
 
     @Volatile
     var isStreaming: Boolean = false
@@ -55,10 +61,41 @@ object ChatHistoryStore {
 
     fun clear() {
         cancelActiveRequest()
+        queuedPrompts.clear()
         messages.clear()
         activeAssistantMsg = null
         lastUserPrompt = null
         lastUserContext = null
+        activeScreen?.onQueueChanged()
+    }
+
+    fun enqueue(text: String, sendContext: AttachedContext) {
+        if (inputHistory.lastOrNull() != text) {
+            inputHistory.add(text)
+            if (inputHistory.size > 50) inputHistory.removeAt(0)
+        }
+        queuedPrompts.add(QueuedPrompt(text, sendContext))
+        activeScreen?.onQueueChanged()
+    }
+
+    fun removeQueued(index: Int) {
+        if (index !in queuedPrompts.indices) return
+        queuedPrompts.removeAt(index)
+        activeScreen?.onQueueChanged()
+    }
+
+    fun takeQueued(index: Int): QueuedPrompt? {
+        if (index !in queuedPrompts.indices) return null
+        val item = queuedPrompts.removeAt(index)
+        activeScreen?.onQueueChanged()
+        return item
+    }
+
+    fun sendQueuedNow(index: Int) {
+        if (isStreaming || index !in queuedPrompts.indices) return
+        val item = queuedPrompts.removeAt(index)
+        activeScreen?.onQueueChanged()
+        startStreamingRequest(item.text, item.context)
     }
 
     fun cancelActiveRequest() {
@@ -146,6 +183,11 @@ object ChatHistoryStore {
                     add(ChatRole.ERROR, errText)
                 }
                 activeScreen?.onStreamFinished()
+                if (queuedPrompts.isNotEmpty()) {
+                    val next = queuedPrompts.removeAt(0)
+                    activeScreen?.onQueueChanged()
+                    startStreamingRequest(next.text, next.context)
+                }
             }
         }
         val onErrorCb: (String) -> Unit = { err ->

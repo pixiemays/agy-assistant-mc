@@ -151,22 +151,36 @@ object ContextChipComponent {
 
         ctx.screenshot?.let { shot ->
             val cat = Component.translatable("screen.agyassistant.cat.screenshot").string
-            bar.child(
-                create(
-                    category = cat,
-                    name = "${shot.width}×${shot.height}",
-                    categoryColorRgb = 0x4ADE80,
-                    bgArgb = 0xCC14532D.toInt(),
-                    borderArgb = 0xFF22C55E.toInt(),
-                    icon = ItemStack(Items.PAINTING),
-                    onRemove = if (removable) {
-                        {
-                            ctx.screenshot = null
-                            onChanged?.invoke()
-                        }
-                    } else null,
-                )
+            val shotChip = create(
+                category = cat,
+                name = "${shot.width}×${shot.height}",
+                categoryColorRgb = 0x4ADE80,
+                bgArgb = 0xCC14532D.toInt(),
+                borderArgb = 0xFF22C55E.toInt(),
+                icon = ItemStack(Items.PAINTING),
+                onRemove = if (removable) {
+                    {
+                        ctx.screenshot = null
+                        onChanged?.invoke()
+                    }
+                } else null,
             )
+            val normalSurface = Surface.flat(0xCC14532D.toInt()).and(Surface.outline(0xFF22C55E.toInt()))
+            val hoverSurface = Surface.flat(0xCC14532D.toInt()).and(Surface.outline(0xFFF8FAFC.toInt()))
+            shotChip.cursorStyle(CursorStyle.HAND)
+            shotChip.tooltip(Component.translatable("screen.agyassistant.shot.open_hint"))
+            shotChip.mouseEnter().subscribe { shotChip.surface(hoverSurface) }
+            shotChip.mouseLeave().subscribe { shotChip.surface(normalSurface) }
+            shotChip.mouseDown().subscribe { _, _, button ->
+                if (button == 0) {
+                    val mc = net.minecraft.client.Minecraft.getInstance()
+                    mc.screen?.let { parent ->
+                        mc.setScreen(ScreenshotPreviewScreen(parent, shot))
+                    }
+                    true
+                } else false
+            }
+            bar.child(shotChip)
         }
 
         ctx.quote?.let { q ->

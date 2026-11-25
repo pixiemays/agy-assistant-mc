@@ -64,23 +64,25 @@ class RichMessageComponent(
     private var defaultColor: Int = 0xF8FAFC,
 ) : BaseComponent() {
 
-    private val emphasisStyle: Style = Style.EMPTY.withColor(0x93C5FD)
-    private val italicStyle: Style = Style.EMPTY.withColor(0xE2E8F0).withItalic(true)
-    private val strikeStyle: Style = Style.EMPTY.withColor(0x94A3B8).withStrikethrough(true)
-    private val codeStyle: Style = Style.EMPTY.withColor(0xFDE68A)
-    private val codeBlockStyle: Style = Style.EMPTY.withColor(0xA5F3FC)
-    private val headingStyle: Style = Style.EMPTY.withColor(0x38BDF8)
-    private val bulletStyle: Style = Style.EMPTY.withColor(0x93C5FD)
-    private val urlStyle: Style = Style.EMPTY.withColor(0x60A5FA).withUnderlined(true)
+    companion object {
+        private val emphasisStyle: Style = Style.EMPTY.withColor(0x93C5FD)
+        private val italicStyle: Style = Style.EMPTY.withColor(0xE2E8F0).withItalic(true)
+        private val strikeStyle: Style = Style.EMPTY.withColor(0x94A3B8).withStrikethrough(true)
+        private val codeStyle: Style = Style.EMPTY.withColor(0xFDE68A)
+        private val codeBlockStyle: Style = Style.EMPTY.withColor(0xA5F3FC)
+        private val headingStyle: Style = Style.EMPTY.withColor(0x38BDF8)
+        private val bulletStyle: Style = Style.EMPTY.withColor(0x93C5FD)
+        private val urlStyle: Style = Style.EMPTY.withColor(0x60A5FA).withUnderlined(true)
 
-    private val bareIdRegex = Regex("^([a-z0-9_.-]+:[a-z0-9_/.-]+)")
-    private val mdLinkRegex = Regex("^\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)")
-    private val bareUrlRegex = Regex("^(https?://[^\\s)\\]>]+)")
-    private val hrRegex = Regex("^([-*_])(?:\\s*\\1){2,}$")
-    private val tableSepRegex = Regex("^\\|?[\\s:]*-{2,}[\\s:]*(\\|[\\s:]*-{2,}[\\s:]*)*\\|?$")
-    private val orderedListRegex = Regex("^(\\s*)(\\d+\\.)\\s+(.*)$")
-    private val bulletListRegex = Regex("^(\\s*)[-*+]\\s+(.*)$")
-    private val headingRegex = Regex("^(#{1,4})\\s+(.*)$")
+        private val bareIdRegex = Regex("([a-z0-9_.-]+:[a-z0-9_/.-]+)")
+        private val mdLinkRegex = Regex("\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)")
+        private val bareUrlRegex = Regex("(https?://[^\\s)\\]>]+)")
+        private val hrRegex = Regex("^([-*_])(?:\\s*\\1){2,}$")
+        private val tableSepRegex = Regex("^\\|?[\\s:]*-{2,}[\\s:]*(\\|[\\s:]*-{2,}[\\s:]*)*\\|?$")
+        private val orderedListRegex = Regex("^(\\s*)(\\d+\\.)\\s+(.*)$")
+        private val bulletListRegex = Regex("^(\\s*)[-*+]\\s+(.*)$")
+        private val headingRegex = Regex("^(#{1,4})\\s+(.*)$")
+    }
 
     private var laidOut: List<LaidOutItem> = emptyList()
     private var contentHeightPx: Int = 12
@@ -92,6 +94,7 @@ class RichMessageComponent(
     var onUrlClick: ((String) -> Unit)? = null
 
     fun markdown(newMarkdown: String): RichMessageComponent {
+        if (this.markdown == newMarkdown && laidOut.isNotEmpty()) return this
         val prevH = contentHeightPx
         this.markdown = newMarkdown
         this.lastLayoutWidth = -1
@@ -107,6 +110,7 @@ class RichMessageComponent(
     }
 
     fun color(rgb: Int): RichMessageComponent {
+        if (this.defaultColor == rgb) return this
         this.defaultColor = rgb
         this.lastLayoutWidth = -1
         return this
@@ -367,6 +371,7 @@ class RichMessageComponent(
     private fun tokenizeInline(text: String, baseStyle: Style, out: MutableList<InlineNode>) {
         var i = 0
         val n = text.length
+        val hasColon = text.indexOf(':') >= 0
         val buf = StringBuilder()
 
         fun flush() {
@@ -378,7 +383,7 @@ class RichMessageComponent(
 
         while (i < n) {
             if (text[i] == '[') {
-                val m = mdLinkRegex.find(text.substring(i))
+                val m = mdLinkRegex.matchAt(text, i)
                 if (m != null) {
                     val label = m.groupValues[1]
                     val url = m.groupValues[2].trimEnd('.', ',', ';')
@@ -389,8 +394,8 @@ class RichMessageComponent(
                 }
             }
 
-            if (text[i] == 'h' && (text.startsWith("https://", i) || text.startsWith("http://", i))) {
-                val m = bareUrlRegex.find(text.substring(i))
+            if (hasColon && text[i] == 'h' && (text.startsWith("https://", i) || text.startsWith("http://", i))) {
+                val m = bareUrlRegex.matchAt(text, i)
                 if (m != null) {
                     val url = m.groupValues[1].trimEnd('.', ',', ';')
                     val shortHost = url.removePrefix("https://").removePrefix("http://").substringBefore('/').take(28)
@@ -417,8 +422,8 @@ class RichMessageComponent(
                 }
             }
 
-            if ((i == 0 || !text[i - 1].isLetterOrDigit()) && text[i] in 'a'..'z') {
-                val m = bareIdRegex.find(text.substring(i))
+            if (hasColon && (i == 0 || !text[i - 1].isLetterOrDigit()) && text[i] in 'a'..'z') {
+                val m = bareIdRegex.matchAt(text, i)
                 if (m != null) {
                     val candidate = m.groupValues[1].trimEnd('.', ',', ';')
                     val ref = ReferenceExtractor.resolve(candidate)
@@ -571,7 +576,10 @@ class RichMessageComponent(
         }
 
         val pose = context.pose()
+        val screenH = Minecraft.getInstance().window.guiScaledHeight
         for (item in laidOut) {
+            val iy = y + item.y
+            if (iy + item.h < 0 || iy > screenH) continue
             when (item) {
                 is LaidOutItem.BoxBg -> {
                     val bx = x + item.x

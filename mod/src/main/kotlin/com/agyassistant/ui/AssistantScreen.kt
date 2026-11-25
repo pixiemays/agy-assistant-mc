@@ -10,7 +10,6 @@ import com.agyassistant.network.BridgeProcessManager
 import com.agyassistant.network.OpenAiCompatClient
 import io.wispforest.owo.ui.base.BaseUIModelScreen
 import io.wispforest.owo.ui.component.ButtonComponent
-import io.wispforest.owo.ui.component.CheckboxComponent
 import io.wispforest.owo.ui.component.Components
 import io.wispforest.owo.ui.component.LabelComponent
 import io.wispforest.owo.ui.component.TextBoxComponent
@@ -25,9 +24,12 @@ import io.wispforest.owo.ui.core.Sizing
 import io.wispforest.owo.ui.core.Surface
 import io.wispforest.owo.ui.core.VerticalAlignment
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.ConfirmLinkScreen
+import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.Style
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items
@@ -44,19 +46,28 @@ class AssistantScreen(
 ) {
     private var statusLabel: LabelComponent? = null
     private var chipsBar: FlowLayout? = null
+    private var queueBar: FlowLayout? = null
     private var messagesScroll: ScrollContainer<FlowLayout>? = null
     private var messagesContainer: FlowLayout? = null
+    private var promptInputWrap: FlowLayout? = null
     private var promptInput: TextBoxComponent? = null
-    private var screenshotCheckbox: CheckboxComponent? = null
+    private var captureScreenBtn: FlowLayout? = null
     private var sendButton: ButtonComponent? = null
+    private var stopSlot: FlowLayout? = null
 
     private var bridgeOnline = false
     private var activeAssistantBody: RichMessageComponent? = null
     private var thinkingTick = 0
     private var historyCursor = -1
     private var pendingScrollToBottom = false
+    private var userScrolledUp = false
+    private var pendingStreamMsg: ChatMessage? = null
+    private var lastStreamRenderMs: Long = 0L
+    private var pendingCleanCapture: CompletableFuture<ScreenshotInfo?>? = null
+    private var showingMiniStop = false
 
     private val sendBtnRenderer = ButtonComponent.Renderer.flat(0xCC2563EB.toInt(), 0xFF3B82F6.toInt(), 0x881E3A8A.toInt())
+    private val queueBtnRenderer = ButtonComponent.Renderer.flat(0xCC0284C7.toInt(), 0xFF0EA5E9.toInt(), 0x880369A1.toInt())
     private val stopBtnRenderer = ButtonComponent.Renderer.flat(0xCCDC2626.toInt(), 0xFFEF4444.toInt(), 0x887F1D1D.toInt())
 
     private val aiAvatarStack: ItemStack = ItemStack(Items.COMMAND_BLOCK)
@@ -103,11 +114,16 @@ class AssistantScreen(
 
         statusLabel = rootComponent.childById(LabelComponent::class.java, "status-label")
         chipsBar = rootComponent.childById(FlowLayout::class.java, "chips-bar")
+        queueBar = rootComponent.childById(FlowLayout::class.java, "queue-bar")
         messagesScroll = rootComponent.childById(ScrollContainer::class.java, "messages-scroll") as? ScrollContainer<FlowLayout>
         messagesContainer = rootComponent.childById(FlowLayout::class.java, "messages-container")
+        promptInputWrap = rootComponent.childById(FlowLayout::class.java, "prompt-input-wrap")
         promptInput = rootComponent.childById(OwoComponent::class.java, "prompt-input") as? TextBoxComponent
-        screenshotCheckbox = rootComponent.childById(OwoComponent::class.java, "screenshot-checkbox") as? CheckboxComponent
+        captureScreenBtn = rootComponent.childById(FlowLayout::class.java, "capture-screen-button")
         sendButton = rootComponent.childById(OwoComponent::class.java, "send-button") as? ButtonComponent
+        stopSlot = rootComponent.childById(FlowLayout::class.java, "stop-slot")
+
+        ReferenceExtractor.warmUpNameIndexAsync()
 
         messagesScroll?.surface(Surface.flat(0xCC0F172A.toInt()).and(Surface.outline(0xFF1E293B.toInt())))
         messagesScroll?.scrollbar(ScrollContainer.Scrollbar.flat(Color.ofArgb(0x8864748B.toInt())))
@@ -116,17 +132,47 @@ class AssistantScreen(
 
         val headerBtnRenderer = ButtonComponent.Renderer.flat(0xCC1E293B.toInt(), 0xFF334155.toInt(), 0x881E293B.toInt())
 
-        promptInput?.setMaxLength(2000)
-        screenshotCheckbox?.checked(ModConfig.data.attachScreenshotByDefault || context.screenshot != null)
+        promptInputWrap?.surface(Surface.flat(0xCC0F172A.toInt()).and(Surface.outline(0xFF334155.toInt())))
+        promptInput?.apply {
+            setMaxLength(2000)
+            setBordered(false)
+            setTextColor(0xF8FAFC)
+            setHint(
+                Component.translatable("screen.agyassistant.input.placeholder")
+                    .withStyle(Style.EMPTY.withColor(0x64748B))
+            )
+            onChanged().subscribe { syncSendButtonState() }
+            (this as OwoComponent).focusGained().subscribe {
+                promptInputWrap?.surface(Surface.flat(0xEE0F172A.toInt()).and(Surface.outline(0xFF3B82F6.toInt())))
+            }
+            (this as OwoComponent).focusLost().subscribe {
+                promptInputWrap?.surface(Surface.flat(0xCC0F172A.toInt()).and(Surface.outline(0xFF334155.toInt())))
+            }
+        }
 
-        (rootComponent.childById(OwoComponent::class.java, "capture-screen-button") as? ButtonComponent)?.apply {
-            renderer(headerBtnRenderer)
-            onPress { captureScreenshotNow() }
+        captureScreenBtn?.apply {
+            clearChildren()
+            val camTex = ResourceLocation.fromNamespaceAndPath("agyassistant", "textures/gui/camera.png")
+            val camIcon = Components.texture(camTex, 0, 0, 16, 16, 16, 16)
+            camIcon.sizing(Sizing.fixed(11), Sizing.fixed(11))
+            child(camIcon)
+            cursorStyle(CursorStyle.HAND)
+            tooltip(Component.translatable("screen.agyassistant.btn.capture_screen_hint"))
+            mouseEnter().subscribe { syncCaptureButtonStyle(hovered = true) }
+            mouseLeave().subscribe { syncCaptureButtonStyle(hovered = false) }
+            mouseDown().subscribe { _, _, button ->
+                if (button == 0) {
+                    captureScreenshotNow()
+                    focusPromptInput()
+                    true
+                } else false
+            }
+            syncCaptureButtonStyle(hovered = false)
         }
 
         (rootComponent.childById(OwoComponent::class.java, "reset-button") as? ButtonComponent)?.apply {
             renderer(headerBtnRenderer)
-            onPress { resetChat() }
+            onPress { confirmResetChat() }
         }
 
         (rootComponent.childById(OwoComponent::class.java, "settings-button") as? ButtonComponent)?.apply {
@@ -136,7 +182,7 @@ class AssistantScreen(
 
         sendButton?.apply {
             onPress {
-                if (ChatHistoryStore.isStreaming) {
+                if (ChatHistoryStore.isStreaming && promptInput?.value?.isNotBlank() != true) {
                     ChatHistoryStore.cancelActiveRequest()
                 } else {
                     sendMessage()
@@ -152,6 +198,7 @@ class AssistantScreen(
         syncSendButtonState()
 
         rebuildChips()
+        rebuildQueueBar()
         rebuildMessageFeed()
         refreshBridgeStatus()
     }
@@ -159,12 +206,45 @@ class AssistantScreen(
     private fun syncSendButtonState() {
         val btn = sendButton ?: return
         btn.active = true
-        if (ChatHistoryStore.isStreaming) {
-            btn.setMessage(Component.translatable("screen.agyassistant.btn.stop"))
-            btn.renderer(stopBtnRenderer)
+        val streaming = ChatHistoryStore.isStreaming
+        val hasDraft = promptInput?.value?.isNotBlank() == true
+        if (streaming) {
+            if (hasDraft) {
+                btn.setMessage(Component.translatable("screen.agyassistant.btn.queue"))
+                btn.renderer(queueBtnRenderer)
+            } else {
+                btn.setMessage(Component.translatable("screen.agyassistant.btn.stop"))
+                btn.renderer(stopBtnRenderer)
+            }
         } else {
             btn.setMessage(Component.translatable("screen.agyassistant.btn.send"))
             btn.renderer(sendBtnRenderer)
+        }
+        val needMiniStop = streaming && hasDraft
+        if (needMiniStop != showingMiniStop) {
+            showingMiniStop = needMiniStop
+            val slot = stopSlot ?: return
+            slot.clearChildren()
+            if (needMiniStop) {
+                val miniStop = Containers.horizontalFlow(Sizing.fixed(16), Sizing.fixed(16))
+                val normalStop = Surface.flat(0xCCDC2626.toInt()).and(Surface.outline(0xFFEF4444.toInt()))
+                val hoverStop = Surface.flat(0xFFEF4444.toInt()).and(Surface.outline(0xFFFCA5A5.toInt()))
+                miniStop.surface(normalStop)
+                miniStop.horizontalAlignment(io.wispforest.owo.ui.core.HorizontalAlignment.CENTER)
+                miniStop.verticalAlignment(VerticalAlignment.CENTER)
+                miniStop.cursorStyle(CursorStyle.HAND)
+                miniStop.tooltip(Component.translatable("screen.agyassistant.btn.stop_hint"))
+                miniStop.child(ScaledLabelComponent(Component.literal("■"), scale = 0.80f, defaultColor = 0xFFFFFF, shadow = false))
+                miniStop.mouseEnter().subscribe { miniStop.surface(hoverStop) }
+                miniStop.mouseLeave().subscribe { miniStop.surface(normalStop) }
+                miniStop.mouseDown().subscribe { _, _, button ->
+                    if (button == 0) {
+                        ChatHistoryStore.cancelActiveRequest()
+                        true
+                    } else false
+                }
+                slot.child(miniStop)
+            }
         }
     }
 
@@ -177,6 +257,13 @@ class AssistantScreen(
 
     override fun init() {
         super.init()
+        if (ChatHistoryStore.activeScreen !== this) {
+            ChatHistoryStore.activeScreen = this
+            syncSendButtonState()
+            rebuildChips()
+            rebuildQueueBar()
+            rebuildMessageFeed()
+        }
         focusPromptInput()
         scrollToBottom()
     }
@@ -185,15 +272,34 @@ class AssistantScreen(
         val input = promptInput ?: return
         uiAdapter.rootComponent.focusHandler()?.focus(input as OwoComponent, OwoComponent.FocusSource.MOUSE_CLICK)
         input.isFocused = true
-        setFocused(input)
+        // Do NOT call Screen.setFocused(input): BaseOwoScreen uses uiAdapter as its Screen child,
+        // so ContainerEventHandler.mouseClicked() calls setFocused(uiAdapter) right after handling a click,
+        // which would invoke input.setFocused(false) on the previous Screen.focused listener.
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         val input = promptInput
-        if (input != null && (input as OwoComponent).isInBoundingBox(mouseX, mouseY)) {
+        val wrap = promptInputWrap
+        if (input != null && ((input as OwoComponent).isInBoundingBox(mouseX, mouseY) || wrap?.isInBoundingBox(mouseX, mouseY) == true)) {
             focusPromptInput()
         }
         return super.mouseClicked(mouseX, mouseY, button)
+    }
+
+    override fun mouseScrolled(mouseX: Double, mouseY: Double, scrollX: Double, scrollY: Double): Boolean {
+        val handled = super.mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+        if (scrollY > 0) {
+            userScrolledUp = true
+        } else if (scrollY < 0 && isAtScrollBottom()) {
+            userScrolledUp = false
+        }
+        return handled
+    }
+
+    private fun isAtScrollBottom(): Boolean {
+        val scroll = messagesScroll ?: return true
+        val content = messagesContainer ?: return true
+        return content.y() + content.height() <= scroll.y() + scroll.height() + 18
     }
 
     override fun charTyped(codePoint: Char, modifiers: Int): Boolean {
@@ -206,6 +312,10 @@ class AssistantScreen(
 
     override fun tick() {
         super.tick()
+        val pending = pendingStreamMsg
+        if (pending != null && System.currentTimeMillis() - lastStreamRenderMs >= 65L) {
+            flushStreamToken(pending)
+        }
         if (pendingScrollToBottom) {
             pendingScrollToBottom = false
             messagesScroll?.scrollTo(1.0)
@@ -223,7 +333,7 @@ class AssistantScreen(
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
         val input = promptInput
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            if (input != null && input.value.isNotBlank() && !ChatHistoryStore.isStreaming) {
+            if (input != null && input.value.isNotBlank()) {
                 sendMessage()
                 return true
             }
@@ -237,6 +347,7 @@ class AssistantScreen(
                 }
                 input.value = ChatHistoryStore.inputHistory[historyCursor]
                 input.moveCursorToEnd(false)
+                syncSendButtonState()
                 return true
             }
             if (keyCode == GLFW.GLFW_KEY_DOWN) {
@@ -249,6 +360,7 @@ class AssistantScreen(
                         input.value = ""
                     }
                     input.moveCursorToEnd(false)
+                    syncSendButtonState()
                     return true
                 }
             }
@@ -299,9 +411,22 @@ class AssistantScreen(
         }
     }
 
+    private fun syncCaptureButtonStyle(hovered: Boolean = false) {
+        val btn = captureScreenBtn ?: return
+        val hasShot = context.screenshot != null
+        val surface = when {
+            hasShot && hovered -> Surface.flat(0xEE166534.toInt()).and(Surface.outline(0xFF4ADE80.toInt()))
+            hasShot -> Surface.flat(0xCC14532D.toInt()).and(Surface.outline(0xFF22C55E.toInt()))
+            hovered -> Surface.flat(0xFF334155.toInt()).and(Surface.outline(0xFF64748B.toInt()))
+            else -> Surface.flat(0xCC1E293B.toInt()).and(Surface.outline(0xFF334155.toInt()))
+        }
+        btn.surface(surface)
+    }
+
     private fun rebuildChips() {
         val bar = chipsBar ?: return
         bar.clearChildren()
+        syncCaptureButtonStyle(hovered = false)
         ContextChipComponent.populateChips(
             bar = bar,
             ctx = context,
@@ -322,22 +447,61 @@ class AssistantScreen(
         }
     }
 
+    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        val capturePromise = pendingCleanCapture
+        if (capturePromise != null) {
+            pendingCleanCapture = null
+            guiGraphics.flush()
+            ScreenCapture.captureAsync().whenComplete { info, err ->
+                if (err != null) capturePromise.complete(null) else capturePromise.complete(info)
+            }
+        }
+        super.render(guiGraphics, mouseX, mouseY, partialTick)
+    }
+
+    private fun captureCleanGameFrame(): CompletableFuture<ScreenshotInfo?> {
+        pendingCleanCapture?.let { return it }
+        val future = CompletableFuture<ScreenshotInfo?>()
+        pendingCleanCapture = future
+        return future
+    }
+
     private fun captureScreenshotNow() {
-        ScreenCapture.captureAsync().thenAccept { info ->
+        captureCleanGameFrame().thenAccept { info ->
             if (info != null) {
                 Minecraft.getInstance().execute {
                     context.screenshot = info
-                    screenshotCheckbox?.checked(true)
                     rebuildChips()
                 }
             }
         }
     }
 
+    private fun confirmResetChat() {
+        val mc = Minecraft.getInstance()
+        mc.setScreen(
+            ConfirmScreen(
+                { confirmed ->
+                    if (confirmed) {
+                        resetChat()
+                    }
+                    mc.setScreen(this)
+                },
+                Component.translatable("screen.agyassistant.reset_confirm.title"),
+                Component.translatable("screen.agyassistant.reset_confirm.body"),
+                Component.translatable("screen.agyassistant.btn.reset"),
+                Component.translatable("screen.agyassistant.settings.cancel"),
+            )
+        )
+    }
+
     private fun resetChat() {
-        if (ChatHistoryStore.isStreaming) return
+        pendingStreamMsg = null
+        activeAssistantBody = null
         ChatHistoryStore.clear()
         ChatHistoryStore.add(ChatRole.SYSTEM, Component.translatable("screen.agyassistant.msg.reset_done").string)
+        syncSendButtonState()
+        rebuildQueueBar()
         rebuildMessageFeed()
         if (ModConfig.data.provider == "openai_compat") {
             OpenAiCompatClient.resetConversation()
@@ -347,7 +511,6 @@ class AssistantScreen(
     }
 
     private fun sendMessage() {
-        if (ChatHistoryStore.isStreaming) return
         val input = promptInput ?: return
         val text = input.value.trim()
         if (text.isEmpty()) return
@@ -362,10 +525,9 @@ class AssistantScreen(
             return
         }
 
-        val wantScreenshot = screenshotCheckbox?.selected() == true
-        if (wantScreenshot && context.screenshot == null) {
+        if (ModConfig.data.attachScreenshotByDefault && context.screenshot == null) {
             sendButton?.active = false
-            ScreenCapture.captureAsync().thenAccept { shot ->
+            captureCleanGameFrame().thenAccept { shot ->
                 Minecraft.getInstance().execute {
                     context.screenshot = shot
                     rebuildChips()
@@ -384,7 +546,7 @@ class AssistantScreen(
         val sendContext = AttachedContext(
             target = context.target,
             item = context.item,
-            screenshot = if (screenshotCheckbox?.selected() == true) context.screenshot else null,
+            screenshot = context.screenshot,
             quote = context.quote,
         )
         context.target = null
@@ -393,30 +555,175 @@ class AssistantScreen(
         context.quote = null
         rebuildChips()
 
-        ChatHistoryStore.startStreamingRequest(text, sendContext)
+        if (ChatHistoryStore.isStreaming) {
+            ChatHistoryStore.enqueue(text, sendContext)
+            syncSendButtonState()
+            focusPromptInput()
+        } else {
+            ChatHistoryStore.startStreamingRequest(text, sendContext)
+        }
+    }
+
+    internal fun onQueueChanged() {
+        rebuildQueueBar()
+        syncSendButtonState()
+    }
+
+    private fun rebuildQueueBar() {
+        val bar = queueBar ?: return
+        bar.clearChildren()
+        val queued = ChatHistoryStore.queuedPrompts
+        if (queued.isEmpty()) return
+
+        val wrapper = Containers.verticalFlow(Sizing.fill(100), Sizing.content())
+        wrapper.surface(Surface.flat(0xBB0F172A.toInt()).and(Surface.outline(0xFF1E3A5F.toInt())))
+        wrapper.padding(Insets.of(3, 3, 5, 5))
+        wrapper.gap(2)
+
+        val header = ScaledLabelComponent(
+            text = Component.translatable("screen.agyassistant.queue.header", queued.size),
+            scale = 0.72f,
+            defaultColor = 0x38BDF8,
+            shadow = false,
+        )
+        wrapper.child(header)
+
+        for ((idx, item) in queued.withIndex()) {
+            val row = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
+            row.verticalAlignment(VerticalAlignment.CENTER)
+            row.gap(4)
+            row.padding(Insets.of(1, 1, 3, 2))
+            row.surface(Surface.flat(0x661E293B.toInt()))
+
+            val badges = mutableListOf<String>()
+            if (item.context.screenshot != null) badges.add(Component.translatable("screen.agyassistant.cat.screenshot").string)
+            if (item.context.item != null) badges.add(Component.translatable("screen.agyassistant.cat.item").string)
+            if (item.context.target != null) {
+                val k = if (item.context.target?.kind == "entity") "screen.agyassistant.cat.entity" else "screen.agyassistant.cat.block"
+                badges.add(Component.translatable(k).string)
+            }
+            if (item.context.quote != null) badges.add(Component.translatable("screen.agyassistant.btn.quote_short").string)
+            val badgePrefix = if (badges.isNotEmpty()) "[${badges.joinToString("+")}] " else ""
+
+            val preview = item.text.replace('\n', ' ').let { if (it.length > 64) it.take(64) + "…" else it }
+            val textBox = Containers.horizontalFlow(Sizing.expand(100), Sizing.content())
+            textBox.cursorStyle(CursorStyle.HAND)
+            textBox.tooltip(Component.translatable("screen.agyassistant.queue.edit_hint"))
+            val styledLine = Component.empty()
+                .append(Component.literal("${idx + 1}. ").withStyle(Style.EMPTY.withColor(0x94A3B8)))
+                .apply {
+                    if (badgePrefix.isNotEmpty()) {
+                        append(Component.literal(badgePrefix).withStyle(Style.EMPTY.withColor(0x4ADE80)))
+                    }
+                }
+                .append(Component.literal(preview).withStyle(Style.EMPTY.withColor(0xE2E8F0)))
+            val lbl = ScaledLabelComponent(
+                text = styledLine,
+                scale = 0.78f,
+                defaultColor = 0xE2E8F0,
+                shadow = false,
+            )
+            lbl.horizontalSizing(Sizing.fill(100))
+            textBox.child(lbl)
+            textBox.mouseDown().subscribe { _, _, button ->
+                if (button == 0) {
+                    val taken = ChatHistoryStore.takeQueued(idx)
+                    if (taken != null) {
+                        promptInput?.value = taken.text
+                        promptInput?.moveCursorToEnd(false)
+                        if (taken.context.target != null) context.target = taken.context.target
+                        if (taken.context.item != null) context.item = taken.context.item
+                        if (taken.context.screenshot != null) context.screenshot = taken.context.screenshot
+                        if (taken.context.quote != null) context.quote = taken.context.quote
+                        rebuildChips()
+                        syncSendButtonState()
+                        focusPromptInput()
+                    }
+                    true
+                } else false
+            }
+            row.child(textBox)
+
+            if (!ChatHistoryStore.isStreaming) {
+                val playBtn = Containers.horizontalFlow(Sizing.fixed(12), Sizing.fixed(11))
+                playBtn.horizontalAlignment(io.wispforest.owo.ui.core.HorizontalAlignment.CENTER)
+                playBtn.verticalAlignment(VerticalAlignment.CENTER)
+                playBtn.cursorStyle(CursorStyle.HAND)
+                playBtn.tooltip(Component.translatable("screen.agyassistant.queue.send_now_hint"))
+                playBtn.child(ScaledLabelComponent(Component.literal("▶"), scale = 0.72f, defaultColor = 0x4ADE80, shadow = false))
+                playBtn.mouseEnter().subscribe { playBtn.surface(Surface.flat(0x55334155)) }
+                playBtn.mouseLeave().subscribe { playBtn.surface(Surface.BLANK) }
+                playBtn.mouseDown().subscribe { _, _, button ->
+                    if (button == 0) {
+                        ChatHistoryStore.sendQueuedNow(idx)
+                        true
+                    } else false
+                }
+                row.child(playBtn)
+            }
+
+            val delBtn = Containers.horizontalFlow(Sizing.fixed(12), Sizing.fixed(11))
+            delBtn.horizontalAlignment(io.wispforest.owo.ui.core.HorizontalAlignment.CENTER)
+            delBtn.verticalAlignment(VerticalAlignment.CENTER)
+            delBtn.cursorStyle(CursorStyle.HAND)
+            delBtn.tooltip(Component.translatable("screen.agyassistant.queue.remove_hint"))
+            delBtn.child(ScaledLabelComponent(Component.literal("×"), scale = 0.80f, defaultColor = 0xF87171, shadow = false))
+            delBtn.mouseEnter().subscribe { delBtn.surface(Surface.flat(0x55334155)) }
+            delBtn.mouseLeave().subscribe { delBtn.surface(Surface.BLANK) }
+            delBtn.mouseDown().subscribe { _, _, button ->
+                if (button == 0) {
+                    ChatHistoryStore.removeQueued(idx)
+                    focusPromptInput()
+                    true
+                } else false
+            }
+            row.child(delBtn)
+
+            wrapper.child(row)
+        }
+
+        bar.child(wrapper)
     }
 
     internal fun onStreamStarted() {
+        pendingStreamMsg = null
+        lastStreamRenderMs = 0L
+        userScrolledUp = false
         syncSendButtonState()
         thinkingTick = 0
+        rebuildQueueBar()
         rebuildMessageFeed()
     }
 
     internal fun onStreamToken(msg: ChatMessage) {
+        pendingStreamMsg = msg
+        val now = System.currentTimeMillis()
+        if (now - lastStreamRenderMs >= 65L) {
+            flushStreamToken(msg)
+        }
+    }
+
+    private fun flushStreamToken(msg: ChatMessage) {
+        pendingStreamMsg = null
+        lastStreamRenderMs = System.currentTimeMillis()
         val bodyComp = activeAssistantBody
         if (bodyComp != null) {
             bodyComp.color(0xF8FAFC)
             val parsed = QuickOptionsParser.parse(msg.content.toString())
             bodyComp.markdown(parsed.displayText)
-            scrollToBottom()
+            if (!userScrolledUp) {
+                scrollToBottom()
+            }
         } else {
             rebuildMessageFeed()
         }
     }
 
     internal fun onStreamFinished() {
+        pendingStreamMsg = null
         syncSendButtonState()
         activeAssistantBody = null
+        rebuildQueueBar()
         rebuildMessageFeed()
         focusPromptInput()
     }
@@ -527,6 +834,7 @@ class AssistantScreen(
                     addIconAction("edit", "screen.agyassistant.action.edit") {
                         promptInput?.value = cleanCopyText
                         promptInput?.moveCursorToEnd(false)
+                        syncSendButtonState()
                         focusPromptInput()
                     }
                 }
@@ -615,22 +923,52 @@ class AssistantScreen(
                 }
 
                 if (isLastMessage && !ChatHistoryStore.isStreaming && parsedReply != null && parsedReply.options.isNotEmpty()) {
-                    val optRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
-                    optRow.gap(4)
-                    optRow.margins(Insets.top(3))
-                    val optRenderer = ButtonComponent.Renderer.flat(0xCC1E3A5F.toInt(), 0xFF2563EB.toInt(), 0x881E293B.toInt())
+                    val optWrapper = Containers.verticalFlow(Sizing.fill(100), Sizing.content())
+                    optWrapper.gap(3)
+                    optWrapper.margins(Insets.top(3))
+                    val normalOptSurface = Surface.flat(0xCC1E3A5F.toInt()).and(Surface.outline(0xFF3B82F6.toInt()))
+                    val hoverOptSurface = Surface.flat(0xEE2563EB.toInt()).and(Surface.outline(0xFF93C5FD.toInt()))
+
+                    val font = Minecraft.getInstance().font
+                    val maxRowW = ((messagesScroll?.width() ?: 320) - 34).coerceAtLeast(160)
+                    var currentRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content()).apply { gap(4) }
+                    var currentRowW = 0
+
                     for (option in parsedReply.options) {
-                        val optBtn = Components.button(Component.literal(option)) {
-                            if (!ChatHistoryStore.isStreaming) {
-                                dispatchChatRequest(option)
-                            }
-                        }.apply {
-                            renderer(optRenderer)
-                            (this as OwoComponent).sizing(Sizing.content(), Sizing.fixed(15))
+                        val estW = (font.width(option) * 0.85f).toInt() + 16
+                        if (currentRowW > 0 && currentRowW + estW > maxRowW) {
+                            optWrapper.child(currentRow)
+                            currentRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content()).apply { gap(4) }
+                            currentRowW = 0
                         }
-                        optRow.child(optBtn as OwoComponent)
+                        val optBtn = Containers.horizontalFlow(Sizing.content(), Sizing.content())
+                        optBtn.surface(normalOptSurface)
+                        optBtn.padding(Insets.of(3, 3, 6, 6))
+                        optBtn.verticalAlignment(VerticalAlignment.CENTER)
+                        optBtn.cursorStyle(CursorStyle.HAND)
+                        optBtn.child(
+                            ScaledLabelComponent(
+                                text = Component.literal(option),
+                                scale = 0.80f,
+                                defaultColor = 0xF8FAFC,
+                                shadow = false,
+                            )
+                        )
+                        optBtn.mouseEnter().subscribe { optBtn.surface(hoverOptSurface) }
+                        optBtn.mouseLeave().subscribe { optBtn.surface(normalOptSurface) }
+                        optBtn.mouseDown().subscribe { _, _, button ->
+                            if (button == 0 && !ChatHistoryStore.isStreaming) {
+                                dispatchChatRequest(option)
+                                true
+                            } else false
+                        }
+                        currentRow.child(optBtn)
+                        currentRowW += estW + 4
                     }
-                    card.child(optRow)
+                    if (currentRowW > 0) {
+                        optWrapper.child(currentRow)
+                    }
+                    card.child(optWrapper)
                 }
             }
 

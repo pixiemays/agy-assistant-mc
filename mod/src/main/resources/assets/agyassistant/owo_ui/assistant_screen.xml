@@ -57,14 +57,6 @@
                                     </sizing>
                                 </flow-layout>
 
-                                <button id="capture-screen-button">
-                                    <text translate="true">screen.agyassistant.btn.capture_screen</text>
-                                    <sizing>
-                                        <horizontal method="content">0</horizontal>
-                                        <vertical method="fixed">14</vertical>
-                                    </sizing>
-                                </button>
-
                                 <button id="reset-button">
                                     <text translate="true">screen.agyassistant.btn.reset</text>
                                     <sizing>
@@ -81,15 +73,6 @@
                                     </sizing>
                                 </button>
                             </children>
-                        </flow-layout>
-
-                        <!-- Context Chips Bar -->
-                        <flow-layout direction="horizontal" id="chips-bar">
-                            <sizing>
-                                <horizontal method="fill">100</horizontal>
-                                <vertical method="content">0</vertical>
-                            </sizing>
-                            <gap>3</gap>
                         </flow-layout>
 
                         <!-- Scrollable Chat Feed -->
@@ -114,6 +97,24 @@
                             </surface>
                         </scroll>
 
+                        <!-- Queued Prompts Bar -->
+                        <flow-layout direction="vertical" id="queue-bar">
+                            <sizing>
+                                <horizontal method="fill">100</horizontal>
+                                <vertical method="content">0</vertical>
+                            </sizing>
+                            <gap>2</gap>
+                        </flow-layout>
+
+                        <!-- Context Chips Bar (attached to current draft) -->
+                        <flow-layout direction="horizontal" id="chips-bar">
+                            <sizing>
+                                <horizontal method="fill">100</horizontal>
+                                <vertical method="content">0</vertical>
+                            </sizing>
+                            <gap>3</gap>
+                        </flow-layout>
+
                         <!-- Input Bar -->
                         <flow-layout direction="horizontal" id="input-bar">
                             <sizing>
@@ -124,16 +125,36 @@
                             <gap>4</gap>
 
                             <children>
-                                <text-box id="prompt-input">
+                                <flow-layout direction="horizontal" id="prompt-input-wrap">
                                     <sizing>
                                         <horizontal method="expand">100</horizontal>
                                         <vertical method="fixed">16</vertical>
                                     </sizing>
-                                </text-box>
+                                    <vertical-alignment>center</vertical-alignment>
+                                    <padding>
+                                        <top>3</top>
+                                        <bottom>2</bottom>
+                                        <left>5</left>
+                                        <right>5</right>
+                                    </padding>
+                                    <children>
+                                        <text-box id="prompt-input">
+                                            <sizing>
+                                                <horizontal method="fill">100</horizontal>
+                                                <vertical method="fixed">11</vertical>
+                                            </sizing>
+                                        </text-box>
+                                    </children>
+                                </flow-layout>
 
-                                <checkbox id="screenshot-checkbox">
-                                    <text translate="true">screen.agyassistant.checkbox.screenshot</text>
-                                </checkbox>
+                                <flow-layout direction="horizontal" id="capture-screen-button">
+                                    <sizing>
+                                        <horizontal method="fixed">20</horizontal>
+                                        <vertical method="fixed">16</vertical>
+                                    </sizing>
+                                    <horizontal-alignment>center</horizontal-alignment>
+                                    <vertical-alignment>center</vertical-alignment>
+                                </flow-layout>
 
                                 <button id="send-button">
                                     <text translate="true">screen.agyassistant.btn.send</text>
@@ -142,6 +163,14 @@
                                         <vertical method="fixed">16</vertical>
                                     </sizing>
                                 </button>
+
+                                <flow-layout direction="horizontal" id="stop-slot">
+                                    <sizing>
+                                        <horizontal method="content">0</horizontal>
+                                        <vertical method="fixed">16</vertical>
+                                    </sizing>
+                                    <vertical-alignment>center</vertical-alignment>
+                                </flow-layout>
                             </children>
                         </flow-layout>
                     </children>
