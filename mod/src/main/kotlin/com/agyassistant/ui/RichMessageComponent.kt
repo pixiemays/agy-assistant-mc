@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
+import net.minecraft.resources.ResourceLocation
 import kotlin.math.ceil
 
 private sealed interface InlineNode {
@@ -368,6 +369,15 @@ class RichMessageComponent(
         return out
     }
 
+    /** The model wrote a slightly wrong ID — substitute the closest real item from the same namespace */
+    private fun findSuggestedRef(raw: String): GameReference? {
+        val cleaned = raw.trim().trimEnd('.', ',', ')', ']', ';')
+        if (!cleaned.contains(':')) return null
+        val loc = ResourceLocation.tryParse(cleaned) ?: return null
+        val similar = ReferenceExtractor.findSimilar(loc) ?: return null
+        return ReferenceExtractor.resolve(similar)?.copy(resolvedFrom = cleaned)
+    }
+
     private fun tokenizeInline(text: String, baseStyle: Style, out: MutableList<InlineNode>) {
         var i = 0
         val n = text.length
@@ -410,7 +420,7 @@ class RichMessageComponent(
                 val end = text.indexOf('`', i + 1)
                 if (end > i + 1) {
                     val inner = text.substring(i + 1, end)
-                    val ref = ReferenceExtractor.resolve(inner, allowNameLookup = true)
+                    val ref = ReferenceExtractor.resolve(inner, allowNameLookup = true) ?: findSuggestedRef(inner)
                     flush()
                     if (ref != null) {
                         out.add(InlineNode.Pill(ref))

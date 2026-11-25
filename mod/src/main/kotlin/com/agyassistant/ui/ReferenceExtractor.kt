@@ -31,6 +31,8 @@ data class GameReference(
     val id: ResourceLocation,
     val displayName: String,
     val stack: ItemStack,
+    /** Set when the model wrote a slightly wrong ID and we substituted the closest real item */
+    val resolvedFrom: String? = null,
 )
 
 object ReferenceExtractor {
@@ -39,6 +41,7 @@ object ReferenceExtractor {
 
     private val rawCache = java.util.concurrent.ConcurrentHashMap<String, Any>()
     private val locCache = java.util.concurrent.ConcurrentHashMap<ResourceLocation, Any>()
+    private val similarCache = java.util.concurrent.ConcurrentHashMap<ResourceLocation, Any>()
 
     @Volatile
     private var nameIndex: Map<String, ResourceLocation>? = null
@@ -128,12 +131,106 @@ object ReferenceExtractor {
         return null
     }
 
+    @Volatile
+    private var itemNamespaceCache: Set<String>? = null
+
+    private fun itemNamespaces(): Set<String> {
+        itemNamespaceCache?.let { return it }
+        val set = BuiltInRegistries.ITEM.keySet().map { it.namespace }.toHashSet()
+        itemNamespaceCache = set
+        return set
+    }
+
+    /**
+     * Best-effort nearest registered item for an ID the model got slightly wrong —
+     * typos in the path (e.g. `ars_nouveau:spell_book` -> `ars_nouveau:novice_spell_book`,
+     * `create:engineer_manual` -> `create:engineers_manual`) and even in the namespace
+     * itself (e.g. `ars_noveau:spellbook` -> `ars_nouveau:novice_spell_book`).
+     */
+    fun findSimilar(loc: ResourceLocation): ResourceLocation? {
+        similarCache[loc]?.let { return if (it === NULL_SENTINEL) null else it as ResourceLocation }
+        val targetNs = loc.namespace.replace("_", "").lowercase()
+        val targetPath = loc.path.replace("_", "").lowercase()
+        val best: ResourceLocation? = if (targetPath.length < 4 || targetNs.isEmpty()) {
+            null
+        } else {
+            // Accept the exact namespace plus namespaces within a couple of typos
+            val nsTypoLimit = maxOf(2, targetNs.length / 4)
+            val candidateNamespaces = HashSet<String>()
+            for (ns in itemNamespaces()) {
+                val nsNorm = ns.replace("_", "")
+                val nsDist = if (nsNorm == targetNs) 0 else levenshtein(nsNorm, targetNs)
+                if (nsDist in 0..nsTypoLimit) candidateNamespaces.add(ns)
+            }
+            if (candidateNamespaces.isEmpty()) {
+                null
+            } else {
+                // Allow a few typos for longer names: 1-2 chars is plenty for short ids,
+                // up to ~1/3 of the length for long ones
+                val maxTypos = maxOf(2, targetPath.length / 3)
+                var bestLoc: ResourceLocation? = null
+                var bestScore = Int.MAX_VALUE
+                for (candidate in BuiltInRegistries.ITEM.keySet()) {
+                    if (candidate.namespace !in candidateNamespaces) continue
+                    val cNorm = candidate.path.replace("_", "")
+                    val pathScore = when {
+                        cNorm == targetPath -> 0
+                        cNorm.contains(targetPath) || targetPath.contains(cNorm) ->
+                            kotlin.math.abs(cNorm.length - targetPath.length)
+                        else -> {
+                            val d = levenshtein(targetPath, cNorm)
+                            if (d <= maxTypos) d else continue
+                        }
+                    }
+                    val nsScore = if (candidate.namespace == loc.namespace) 0 else 1
+                    val score = nsScore + pathScore
+                    if (score < bestScore) {
+                        bestScore = score
+                        bestLoc = candidate
+                    }
+                }
+                bestLoc
+            }
+        }
+        similarCache[loc] = best ?: NULL_SENTINEL
+        return best
+    }
+
+    private fun levenshtein(a: String, b: String): Int {
+        if (a == b) return 0
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        var prev = IntArray(b.length + 1) { it }
+        var cur = IntArray(b.length + 1)
+        for (i in 1..a.length) {
+            cur[0] = i
+            for (j in 1..b.length) {
+                cur[j] = minOf(
+                    prev[j] + 1,
+                    cur[j - 1] + 1,
+                    prev[j - 1] + if (a[i - 1] == b[j - 1]) 0 else 1,
+                )
+            }
+            val tmp = prev
+            prev = cur
+            cur = tmp
+        }
+        return prev[b.length]
+    }
+
     fun hasRecipeViewer(): Boolean =
         ModList.get().isLoaded("jei") || ModList.get().isLoaded("emi")
 
     fun buildTooltip(ref: GameReference): List<Component> {
         val mc = Minecraft.getInstance()
         val lines = mutableListOf<Component>()
+
+        if (ref.resolvedFrom != null) {
+            lines.add(
+                Component.translatable("screen.agyassistant.ref.similar_note", ref.resolvedFrom)
+                    .withStyle(Style.EMPTY.withColor(0xFBBF24))
+            )
+        }
 
         if (ref.kind == RefKind.ITEM || ref.kind == RefKind.BLOCK) {
             runCatching {

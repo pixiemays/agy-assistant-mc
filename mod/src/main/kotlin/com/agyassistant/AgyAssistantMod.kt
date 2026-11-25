@@ -3,6 +3,7 @@ package com.agyassistant
 import com.agyassistant.config.ModConfig
 import com.agyassistant.input.KeyBindings
 import com.agyassistant.network.BridgeProcessManager
+import com.agyassistant.ui.AssistantNotifications
 import com.agyassistant.ui.SettingsScreen
 import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.common.Mod
@@ -30,6 +31,7 @@ object AgyAssistantMod {
 
         FORGE_BUS.addListener(KeyBindings::onClientTick)
         FORGE_BUS.addListener(KeyBindings::onScreenKeyPressed)
+        FORGE_BUS.addListener(AssistantNotifications::onRenderGui)
         FORGE_BUS.addListener(::onGameShuttingDown)
 
         logger.info("Antigravity In-Game Assistant initialized (bridge port={})", ModConfig.data.bridgePort)

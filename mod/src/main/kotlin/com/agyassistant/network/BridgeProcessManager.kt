@@ -97,11 +97,15 @@ object BridgeProcessManager {
             return (parts + commonArgs) to ModConfig.configDir
         }
 
-        // 2. Packaged agy-bridge.exe in config/agyassistant/
+        // 2. Packaged agy-bridge.exe in config/agyassistant/ or mods/
         val exeName = if (isWindows) "agy-bridge.exe" else "agy-bridge"
         val packagedExe = ModConfig.configDir.resolve(exeName)
         if (Files.isRegularFile(packagedExe)) {
             return (listOf(packagedExe.toAbsolutePath().toString()) + commonArgs) to ModConfig.configDir
+        }
+        val modsExe = net.neoforged.fml.loading.FMLPaths.MODSDIR.get().resolve(exeName)
+        if (Files.isRegularFile(modsExe)) {
+            return (listOf(modsExe.toAbsolutePath().toString()) + commonArgs) to ModConfig.configDir
         }
 
         // 3. Dev-mode fallback: locate bridge/pyproject.toml near working directory

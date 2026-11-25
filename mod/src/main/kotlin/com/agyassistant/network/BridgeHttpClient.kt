@@ -83,12 +83,18 @@ object BridgeHttpClient {
             null
         }
 
+        // Privacy: never send world coordinates or screenshots if the player disabled them
+        val safeTarget = context.target?.let {
+            if (cfg.privacyStripCoordinates) it.copy(pos = null) else it
+        }
+        val safeShot = if (cfg.privacyBlockScreenshots) null else context.screenshot
+
         val payload = ChatPayload(
             message = message,
-            targetData = context.target,
+            targetData = safeTarget,
             itemData = context.item,
-            screenshotBase64 = context.screenshot?.base64,
-            screenshotMime = context.screenshot?.mimeType ?: "image/jpeg",
+            screenshotBase64 = safeShot?.base64,
+            screenshotMime = safeShot?.mimeType ?: "image/jpeg",
             gameDir = gameDir,
             allowGameDirRead = cfg.allowGameDirRead,
             systemPromptExtra = cfg.systemPromptExtra.ifBlank { null },

@@ -44,6 +44,7 @@ class AssistantScreen(
     FlowLayout::class.java,
     DataSource.asset(ResourceLocation.fromNamespaceAndPath("agyassistant", "assistant_screen")),
 ) {
+    private var titleLabel: LabelComponent? = null
     private var statusLabel: LabelComponent? = null
     private var chipsBar: FlowLayout? = null
     private var queueBar: FlowLayout? = null
@@ -78,10 +79,21 @@ class AssistantScreen(
         "opencode" -> "OpenCode"
         "openai_compat" -> {
             val raw = ModConfig.data.openaiModel.trim()
-            val shortName = raw.substringAfter('/').substringBefore(':').ifBlank { "AI" }
-            shortName.take(18)
+            val first = raw.split(',').firstOrNull()?.trim().orEmpty().ifBlank { raw }
+            val noVendor = first.substringAfter('/').ifBlank { first }
+            // Strip only OpenRouter's ":free" suffix; keep Ollama tags like "qwen3:8b"
+            val name = if (noVendor.endsWith(":free")) noVendor.removeSuffix(":free") else noVendor
+            name.ifBlank { "AI" }
         }
         else -> "Antigravity"
+    }
+
+    private fun activeModelId(): String? =
+        if (ModConfig.data.provider == "openai_compat") ModConfig.data.openaiModel.trim().ifBlank { null } else null
+
+    private fun isKeyConfigured(): Boolean = when (ModConfig.data.provider) {
+        "openai_compat" -> ModConfig.data.openaiApiKey.isNotBlank()
+        else -> true // bridge / opencode do not require a user-provided API key
     }
     private val playerAvatarStack: ItemStack by lazy {
         val head = ItemStack(Items.PLAYER_HEAD)
@@ -93,7 +105,7 @@ class AssistantScreen(
 
     init {
         pendingScreenshot?.thenAccept { info ->
-            if (info != null) {
+            if (info != null && !ModConfig.data.privacyBlockScreenshots) {
                 Minecraft.getInstance().execute {
                     context.screenshot = info
                     rebuildChips()
@@ -109,8 +121,11 @@ class AssistantScreen(
         val mainPanel = rootComponent.childById(FlowLayout::class.java, "main-panel")
         mainPanel?.surface(Surface.flat(0xEC0B1120.toInt()).and(Surface.outline(0xFF334155.toInt())))
 
-        rootComponent.childById(LabelComponent::class.java, "title-label")
-            ?.text(Component.literal(activeAiDisplayName()))
+        titleLabel = rootComponent.childById(LabelComponent::class.java, "title-label")
+        titleLabel?.apply {
+            text(Component.literal(activeAiDisplayName()))
+            activeModelId()?.let { tooltip(Component.literal(it)) }
+        }
 
         statusLabel = rootComponent.childById(LabelComponent::class.java, "status-label")
         chipsBar = rootComponent.childById(FlowLayout::class.java, "chips-bar")
@@ -191,7 +206,12 @@ class AssistantScreen(
         }
 
         if (ChatHistoryStore.messages.isEmpty()) {
-            ChatHistoryStore.add(ChatRole.SYSTEM, Component.translatable("screen.agyassistant.msg.welcome").string)
+            if (ModConfig.data.firstLaunch && !isKeyConfigured()) {
+                ChatHistoryStore.add(ChatRole.SYSTEM, Component.translatable("screen.agyassistant.msg.setup_prompt").string)
+                ModConfig.update { firstLaunch = false }
+            } else {
+                ChatHistoryStore.add(ChatRole.SYSTEM, Component.translatable("screen.agyassistant.msg.welcome").string)
+            }
         }
 
         ChatHistoryStore.activeScreen = this
@@ -259,10 +279,12 @@ class AssistantScreen(
         super.init()
         if (ChatHistoryStore.activeScreen !== this) {
             ChatHistoryStore.activeScreen = this
+            titleLabel?.text(Component.literal(activeAiDisplayName()))
             syncSendButtonState()
             rebuildChips()
             rebuildQueueBar()
             rebuildMessageFeed()
+            refreshBridgeStatus()
         }
         focusPromptInput()
         scrollToBottom()
@@ -467,6 +489,15 @@ class AssistantScreen(
     }
 
     private fun captureScreenshotNow() {
+        if (ModConfig.data.privacyBlockScreenshots) {
+            ChatHistoryStore.add(
+                ChatRole.ERROR,
+                Component.translatable("screen.agyassistant.msg.shots_blocked").string,
+            )
+            rebuildMessageFeed()
+            focusPromptInput()
+            return
+        }
         captureCleanGameFrame().thenAccept { info ->
             if (info != null) {
                 Minecraft.getInstance().execute {
@@ -516,16 +547,26 @@ class AssistantScreen(
         if (text.isEmpty()) return
 
         if (!bridgeOnline) {
-            ChatHistoryStore.add(
-                ChatRole.ERROR,
-                Component.translatable("screen.agyassistant.err.bridge_offline", ModConfig.data.bridgePort).string,
-            )
+            if (ModConfig.data.provider == "openai_compat") {
+                ChatHistoryStore.add(
+                    ChatRole.ERROR,
+                    Component.translatable("screen.agyassistant.err.direct_unconfigured").string,
+                )
+            } else {
+                ChatHistoryStore.add(
+                    ChatRole.ERROR,
+                    Component.translatable("screen.agyassistant.err.bridge_offline", ModConfig.data.bridgePort).string,
+                )
+            }
             rebuildMessageFeed()
             refreshBridgeStatus()
             return
         }
 
-        if (ModConfig.data.attachScreenshotByDefault && context.screenshot == null) {
+        if (ModConfig.data.attachScreenshotByDefault &&
+            !ModConfig.data.privacyBlockScreenshots &&
+            context.screenshot == null
+        ) {
             sendButton?.active = false
             captureCleanGameFrame().thenAccept { shot ->
                 Minecraft.getInstance().execute {
@@ -773,6 +814,9 @@ class AssistantScreen(
                 defaultColor = headerColor,
                 shadow = false,
             )
+            if (msg.role == ChatRole.ASSISTANT) {
+                activeModelId()?.let { header.tooltip(Component.literal(it)) }
+            }
             headerRow.child(header)
 
             val spacer = Containers.horizontalFlow(Sizing.expand(100), Sizing.fixed(1))

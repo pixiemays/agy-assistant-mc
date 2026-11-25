@@ -8,7 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 data class ModConfigData(
-    var provider: String = "bridge", // "bridge" (Antigravity), "opencode", "openai_compat"
+    var provider: String = "openai_compat", // "bridge" (Antigravity), "opencode", "openai_compat"
     var bridgeHost: String = "127.0.0.1",
     var bridgePort: Int = 18765,
     var autoStartBridge: Boolean = true,
@@ -24,6 +24,12 @@ data class ModConfigData(
     var openaiBaseUrl: String = "https://openrouter.ai/api/v1",
     var openaiApiKey: String = "",
     var openaiModel: String = "qwen/qwen3-235b-a22b:free",
+    var openaiFallbackModels: String = "",
+    var openaiProxyUrl: String = "",
+    var directServicePreset: String = DirectServicePreset.DEFAULT.key,
+    var firstLaunch: Boolean = true,
+    var privacyStripCoordinates: Boolean = false,
+    var privacyBlockScreenshots: Boolean = false,
 )
 
 object ModConfig {
@@ -53,6 +59,15 @@ object ModConfig {
                     }
                 }
                 data = gson.fromJson(defaultsObj, ModConfigData::class.java) ?: ModConfigData()
+                // Migrate a legacy comma-separated chain in openaiModel into the fallback field
+                if (data.openaiFallbackModels.isBlank() && data.openaiModel.contains(',')) {
+                    val parts = data.openaiModel.split(',').map { it.trim() }.filter { it.isNotBlank() }
+                    if (parts.isNotEmpty()) {
+                        data.openaiModel = parts.first()
+                        data.openaiFallbackModels = parts.drop(1).joinToString(",")
+                    }
+                }
+                data.firstLaunch = false
                 save()
             } else {
                 save()

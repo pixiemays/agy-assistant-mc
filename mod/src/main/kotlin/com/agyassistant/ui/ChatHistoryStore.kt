@@ -5,7 +5,9 @@ import com.agyassistant.context.AttachedContext
 import com.agyassistant.network.BridgeHttpClient
 import com.agyassistant.network.OpenAiCompatClient
 import net.minecraft.client.Minecraft
+import net.minecraft.client.resources.sounds.SimpleSoundInstance
 import net.minecraft.network.chat.Component
+import net.minecraft.sounds.SoundEvents
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicLong
 
@@ -52,6 +54,14 @@ object ChatHistoryStore {
 
     private var lastUserPrompt: String? = null
     private var lastUserContext: AttachedContext? = null
+
+    private fun notifyOutsideChat(error: Boolean) {
+        if (activeScreen != null) return
+        AssistantNotifications.show(if (error) AssistantNotifications.Kind.ERROR else AssistantNotifications.Kind.ANSWER)
+        Minecraft.getInstance().soundManager.play(
+            SimpleSoundInstance.forUI(SoundEvents.EXPERIENCE_ORB_PICKUP, if (error) 0.6f else 1.4f),
+        )
+    }
 
     fun add(role: ChatRole, text: String, attachments: AttachedContext? = null): ChatMessage {
         val msg = ChatMessage(role, StringBuilder(text), attachments)
@@ -183,6 +193,7 @@ object ChatHistoryStore {
                     add(ChatRole.ERROR, errText)
                 }
                 activeScreen?.onStreamFinished()
+                notifyOutsideChat(error = !receivedAnyToken)
                 if (queuedPrompts.isNotEmpty()) {
                     val next = queuedPrompts.removeAt(0)
                     activeScreen?.onQueueChanged()
@@ -202,6 +213,7 @@ object ChatHistoryStore {
                 val errText = Component.translatable("screen.agyassistant.err.request_failed", err).string
                 add(ChatRole.ERROR, errText)
                 activeScreen?.onStreamFinished()
+                notifyOutsideChat(error = true)
             }
         }
 

@@ -83,7 +83,7 @@ object KeyBindings {
             }
         }
 
-        val screenshotFuture = if (ModConfig.data.attachScreenshotByDefault) {
+        val screenshotFuture = if (ModConfig.data.attachScreenshotByDefault && !ModConfig.data.privacyBlockScreenshots) {
             ScreenCapture.captureAsync()
         } else {
             null
