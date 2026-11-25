@@ -1,0 +1,149 @@
+<owo-ui xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/wisp-forest/owo-lib/1.21/owo-ui.xsd">
+    <components>
+        <flow-layout direction="vertical">
+            <sizing>
+                <horizontal method="fill">100</horizontal>
+                <vertical method="fill">100</vertical>
+            </sizing>
+            <horizontal-alignment>center</horizontal-alignment>
+            <vertical-alignment>center</vertical-alignment>
+            <surface>
+                <flat>#66000000</flat>
+            </surface>
+
+            <children>
+                <flow-layout direction="vertical" id="main-panel">
+                    <sizing>
+                        <horizontal method="fill">90</horizontal>
+                        <vertical method="fill">90</vertical>
+                    </sizing>
+                    <padding>
+                        <all>5</all>
+                    </padding>
+                    <gap>3</gap>
+                    <surface>
+                        <flat>#EC0B1120</flat>
+                    </surface>
+
+                    <children>
+                        <!-- Header Bar -->
+                        <flow-layout direction="horizontal" id="header-bar">
+                            <sizing>
+                                <horizontal method="fill">100</horizontal>
+                                <vertical method="content">0</vertical>
+                            </sizing>
+                            <vertical-alignment>center</vertical-alignment>
+                            <gap>4</gap>
+
+                            <children>
+                                <label id="title-label">
+                                    <text translate="true">screen.agyassistant.title</text>
+                                    <shadow>false</shadow>
+                                </label>
+
+                                <label id="status-label">
+                                    <text translate="true">screen.agyassistant.status.connecting</text>
+                                    <shadow>false</shadow>
+                                </label>
+
+                                <flow-layout direction="horizontal">
+                                    <sizing>
+                                        <horizontal method="expand">100</horizontal>
+                                        <vertical method="fixed">1</vertical>
+                                    </sizing>
+                                </flow-layout>
+
+                                <button id="capture-screen-button">
+                                    <text translate="true">screen.agyassistant.btn.capture_screen</text>
+                                    <sizing>
+                                        <horizontal method="content">0</horizontal>
+                                        <vertical method="fixed">14</vertical>
+                                    </sizing>
+                                </button>
+
+                                <button id="reset-button">
+                                    <text translate="true">screen.agyassistant.btn.reset</text>
+                                    <sizing>
+                                        <horizontal method="content">0</horizontal>
+                                        <vertical method="fixed">14</vertical>
+                                    </sizing>
+                                </button>
+
+                                <button id="settings-button">
+                                    <text translate="true">screen.agyassistant.btn.settings</text>
+                                    <sizing>
+                                        <horizontal method="content">0</horizontal>
+                                        <vertical method="fixed">14</vertical>
+                                    </sizing>
+                                </button>
+                            </children>
+                        </flow-layout>
+
+                        <!-- Context Chips Bar -->
+                        <flow-layout direction="horizontal" id="chips-bar">
+                            <sizing>
+                                <horizontal method="fill">100</horizontal>
+                                <vertical method="content">0</vertical>
+                            </sizing>
+                            <gap>3</gap>
+                        </flow-layout>
+
+                        <!-- Scrollable Chat Feed -->
+                        <scroll direction="vertical" id="messages-scroll">
+                            <flow-layout direction="vertical" id="messages-container">
+                                <sizing>
+                                    <horizontal method="fill">100</horizontal>
+                                    <vertical method="content">0</vertical>
+                                </sizing>
+                                <gap>3</gap>
+                            </flow-layout>
+
+                            <sizing>
+                                <horizontal method="fill">100</horizontal>
+                                <vertical method="expand">100</vertical>
+                            </sizing>
+                            <padding>
+                                <all>4</all>
+                            </padding>
+                            <surface>
+                                <flat>#CC0F172A</flat>
+                            </surface>
+                        </scroll>
+
+                        <!-- Input Bar -->
+                        <flow-layout direction="horizontal" id="input-bar">
+                            <sizing>
+                                <horizontal method="fill">100</horizontal>
+                                <vertical method="content">0</vertical>
+                            </sizing>
+                            <vertical-alignment>center</vertical-alignment>
+                            <gap>4</gap>
+
+                            <children>
+                                <text-box id="prompt-input">
+                                    <sizing>
+                                        <horizontal method="expand">100</horizontal>
+                                        <vertical method="fixed">16</vertical>
+                                    </sizing>
+                                </text-box>
+
+                                <checkbox id="screenshot-checkbox">
+                                    <text translate="true">screen.agyassistant.checkbox.screenshot</text>
+                                </checkbox>
+
+                                <button id="send-button">
+                                    <text translate="true">screen.agyassistant.btn.send</text>
+                                    <sizing>
+                                        <horizontal method="fixed">54</horizontal>
+                                        <vertical method="fixed">16</vertical>
+                                    </sizing>
+                                </button>
+                            </children>
+                        </flow-layout>
+                    </children>
+                </flow-layout>
+            </children>
+        </flow-layout>
+    </components>
+</owo-ui>

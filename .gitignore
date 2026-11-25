@@ -1,0 +1,22 @@
+# Gradle / NeoForge mod
+mod/.gradle/
+mod/.kotlin/
+mod/build/
+mod/run/
+mod/.idea/
+*.iml
+
+# Python / PyInstaller bridge
+bridge/.venv/
+bridge/build/
+bridge/dist/
+bridge/*.spec
+bridge/__pycache__/
+bridge/**/__pycache__/
+bridge/.pytest_cache/
+
+# Secrets & logs
+.env
+.env.*
+*.log
+config.json
