@@ -19,6 +19,7 @@ import io.wispforest.owo.ui.container.FlowLayout
 import io.wispforest.owo.ui.container.ScrollContainer
 import io.wispforest.owo.ui.core.Color
 import io.wispforest.owo.ui.core.Component as OwoComponent
+import io.wispforest.owo.ui.core.CursorStyle
 import io.wispforest.owo.ui.core.Insets
 import io.wispforest.owo.ui.core.Sizing
 import io.wispforest.owo.ui.core.Surface
@@ -108,7 +109,9 @@ class AssistantScreen(
         sendButton = rootComponent.childById(OwoComponent::class.java, "send-button") as? ButtonComponent
 
         messagesScroll?.surface(Surface.flat(0xCC0F172A.toInt()).and(Surface.outline(0xFF1E293B.toInt())))
-        messagesScroll?.scrollbar(ScrollContainer.Scrollbar.vanillaFlat())
+        messagesScroll?.scrollbar(ScrollContainer.Scrollbar.flat(Color.ofArgb(0x8864748B.toInt())))
+        messagesScroll?.scrollbarThiccness(4)
+        messagesContainer?.padding(Insets.right(4))
 
         val headerBtnRenderer = ButtonComponent.Renderer.flat(0xCC1E293B.toInt(), 0xFF334155.toInt(), 0x881E293B.toInt())
 
@@ -461,57 +464,53 @@ class AssistantScreen(
             val cleanCopyText = parsedReply?.displayText ?: msg.content.toString()
 
             if (!isThinkingMsg && (msg.role == ChatRole.USER || msg.role == ChatRole.ASSISTANT)) {
-                val miniRenderer = ButtonComponent.Renderer.flat(0x00000000, 0x44FFFFFF, 0x00000000)
                 val authorName = headerText.string
 
-                // Copy button
-                val copyBtn = Components.button(Component.literal("Copy")) { btn ->
-                    Minecraft.getInstance().keyboardHandler.clipboard = cleanCopyText
-                    btn.setMessage(Component.literal("✓"))
-                    focusPromptInput()
-                }.apply {
-                    renderer(miniRenderer)
-                    (this as OwoComponent).sizing(Sizing.content(), Sizing.fixed(11))
-                    (this as OwoComponent).tooltip(Component.translatable("screen.agyassistant.action.copy"))
+                fun addMiniAction(labelKey: String, tooltipKey: String, onClick: (ScaledLabelComponent) -> Unit) {
+                    val lbl = ScaledLabelComponent(
+                        text = Component.translatable(labelKey),
+                        scale = 0.75f,
+                        defaultColor = 0x94A3B8,
+                        shadow = false,
+                    )
+                    lbl.cursorStyle(CursorStyle.HAND)
+                    lbl.tooltip(Component.translatable(tooltipKey))
+                    lbl.mouseEnter().subscribe { lbl.color(0xFFFFFF) }
+                    lbl.mouseLeave().subscribe { lbl.color(0x94A3B8) }
+                    lbl.mouseDown().subscribe { _, _, button ->
+                        if (button == 0) {
+                            onClick(lbl)
+                            true
+                        } else false
+                    }
+                    headerRow.child(lbl)
                 }
-                headerRow.child(copyBtn as OwoComponent)
 
-                // Quote / Reply-to button
-                val quoteBtn = Components.button(Component.literal("↩")) {
+                addMiniAction("screen.agyassistant.btn.copy_short", "screen.agyassistant.action.copy") { lbl ->
+                    Minecraft.getInstance().keyboardHandler.clipboard = cleanCopyText
+                    lbl.text(Component.literal("✓"))
+                    lbl.color(0x4ADE80)
+                    focusPromptInput()
+                }
+
+                addMiniAction("screen.agyassistant.btn.quote_short", "screen.agyassistant.action.quote") {
                     context.quote = QuoteInfo(author = authorName, text = cleanCopyText)
                     rebuildChips()
                     focusPromptInput()
-                }.apply {
-                    renderer(miniRenderer)
-                    (this as OwoComponent).sizing(Sizing.fixed(14), Sizing.fixed(11))
-                    (this as OwoComponent).tooltip(Component.translatable("screen.agyassistant.action.quote"))
                 }
-                headerRow.child(quoteBtn as OwoComponent)
 
-                // Edit / Reuse prompt (user messages only)
                 if (msg.role == ChatRole.USER) {
-                    val editBtn = Components.button(Component.literal("✎")) {
+                    addMiniAction("screen.agyassistant.btn.edit_short", "screen.agyassistant.action.edit") {
                         promptInput?.value = cleanCopyText
                         promptInput?.moveCursorToEnd(false)
                         focusPromptInput()
-                    }.apply {
-                        renderer(miniRenderer)
-                        (this as OwoComponent).sizing(Sizing.fixed(14), Sizing.fixed(11))
-                        (this as OwoComponent).tooltip(Component.translatable("screen.agyassistant.action.edit"))
                     }
-                    headerRow.child(editBtn as OwoComponent)
                 }
 
-                // Regenerate (last assistant message when idle)
                 if (msg.role == ChatRole.ASSISTANT && isLastMessage && ChatHistoryStore.canRegenerate()) {
-                    val retryBtn = Components.button(Component.literal("↻")) {
+                    addMiniAction("screen.agyassistant.btn.retry_short", "screen.agyassistant.action.retry") {
                         ChatHistoryStore.regenerateLast()
-                    }.apply {
-                        renderer(miniRenderer)
-                        (this as OwoComponent).sizing(Sizing.fixed(14), Sizing.fixed(11))
-                        (this as OwoComponent).tooltip(Component.translatable("screen.agyassistant.action.retry"))
                     }
-                    headerRow.child(retryBtn as OwoComponent)
                 }
             }
 

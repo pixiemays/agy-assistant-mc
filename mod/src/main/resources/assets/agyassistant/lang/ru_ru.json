@@ -35,5 +35,9 @@
   "screen.agyassistant.action.copy": "Скопировать текст",
   "screen.agyassistant.action.quote": "Процитировать в новом вопросе",
   "screen.agyassistant.action.edit": "Вставить в поле ввода",
-  "screen.agyassistant.action.retry": "Перегенерировать ответ"
+  "screen.agyassistant.action.retry": "Перегенерировать ответ",
+  "screen.agyassistant.btn.copy_short": "Копир.",
+  "screen.agyassistant.btn.quote_short": "Цитата",
+  "screen.agyassistant.btn.edit_short": "Изм.",
+  "screen.agyassistant.btn.retry_short": "Повтор"
 }

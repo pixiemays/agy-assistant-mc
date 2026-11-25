@@ -35,5 +35,9 @@
   "screen.agyassistant.action.copy": "Copy message",
   "screen.agyassistant.action.quote": "Quote in next question",
   "screen.agyassistant.action.edit": "Reuse in input box",
-  "screen.agyassistant.action.retry": "Regenerate reply"
+  "screen.agyassistant.action.retry": "Regenerate reply",
+  "screen.agyassistant.btn.copy_short": "Copy",
+  "screen.agyassistant.btn.quote_short": "Quote",
+  "screen.agyassistant.btn.edit_short": "Edit",
+  "screen.agyassistant.btn.retry_short": "Retry"
 }
