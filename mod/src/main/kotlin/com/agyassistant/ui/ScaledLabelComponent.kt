@@ -1,9 +1,11 @@
 package com.agyassistant.ui
 
 import io.wispforest.owo.ui.base.BaseComponent
+import io.wispforest.owo.ui.core.CursorStyle
 import io.wispforest.owo.ui.core.OwoUIDrawContext
 import io.wispforest.owo.ui.core.Sizing
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.util.FormattedCharSequence
 import kotlin.math.ceil
@@ -17,6 +19,10 @@ class ScaledLabelComponent(
 
     private var wrappedLines: List<FormattedCharSequence> = emptyList()
     private var lastWrapWidth: Int = -1
+    private var lastHoverKey: String? = null
+
+    var onGameRefClick: ((GameReference, Int, Boolean) -> Boolean)? = null
+    var onUrlClick: ((String) -> Unit)? = null
 
     fun text(newText: Component): ScaledLabelComponent {
         this.text = newText
@@ -46,6 +52,39 @@ class ScaledLabelComponent(
         val s = effectiveScale()
         val scaledMaxWidth = (target / s).toInt().coerceAtLeast(20)
         wrappedLines = font.split(text, scaledMaxWidth)
+    }
+
+    private fun clickValueAtLocal(localX: Double, localY: Double): String? {
+        if (onGameRefClick == null && onUrlClick == null) return null
+        ensureWrapped(width)
+        val font = Minecraft.getInstance().font
+        val s = effectiveScale()
+        val lineStep = font.lineHeight + 2
+        val relX = (localX / s).toInt()
+        val relY = (localY / s).toInt()
+        if (relX < 0 || relY < 0) return null
+
+        val lineIdx = relY / lineStep
+        if (lineIdx !in wrappedLines.indices) return null
+
+        val style = font.splitter.componentStyleAtWidth(wrappedLines[lineIdx], relX) ?: return null
+        return style.clickEvent?.value
+    }
+
+    override fun onMouseDown(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        val clickVal = clickValueAtLocal(mouseX, mouseY)
+        if (clickVal != null) {
+            if (clickVal.startsWith(ReferenceExtractor.CLICK_PREFIX) && onGameRefClick != null) {
+                val ref = ReferenceExtractor.resolve(clickVal.removePrefix(ReferenceExtractor.CLICK_PREFIX))
+                if (ref != null && onGameRefClick!!.invoke(ref, button, Screen.hasShiftDown())) {
+                    return true
+                }
+            } else if ((clickVal.startsWith("https://") || clickVal.startsWith("http://")) && button == 0 && onUrlClick != null) {
+                onUrlClick!!.invoke(clickVal)
+                return true
+            }
+        }
+        return super.onMouseDown(mouseX, mouseY, button)
     }
 
     override fun determineHorizontalContentSize(sizing: Sizing): Int {
@@ -81,6 +120,38 @@ class ScaledLabelComponent(
         val font = Minecraft.getInstance().font
         val lineStep = font.lineHeight + 2
         val s = effectiveScale()
+
+        if (onGameRefClick != null || onUrlClick != null) {
+            val clickVal = if (isInBoundingBox(mouseX.toDouble(), mouseY.toDouble())) {
+                clickValueAtLocal((mouseX - x).toDouble(), (mouseY - y).toDouble())
+            } else {
+                null
+            }
+            if (clickVal != lastHoverKey) {
+                lastHoverKey = clickVal
+                if (clickVal != null && clickVal.startsWith(ReferenceExtractor.CLICK_PREFIX)) {
+                    val ref = ReferenceExtractor.resolve(clickVal.removePrefix(ReferenceExtractor.CLICK_PREFIX))
+                    if (ref != null) {
+                        cursorStyle(CursorStyle.HAND)
+                        tooltip(ReferenceExtractor.buildTooltip(ref))
+                    } else {
+                        cursorStyle(CursorStyle.POINTER)
+                        tooltip(emptyList<Component>())
+                    }
+                } else if (clickVal != null && (clickVal.startsWith("https://") || clickVal.startsWith("http://"))) {
+                    cursorStyle(CursorStyle.HAND)
+                    tooltip(
+                        listOf(
+                            Component.translatable("screen.agyassistant.link.open_browser"),
+                            Component.literal(clickVal).withStyle(net.minecraft.network.chat.Style.EMPTY.withColor(0x94A3B8)),
+                        )
+                    )
+                } else {
+                    cursorStyle(CursorStyle.POINTER)
+                    tooltip(emptyList<Component>())
+                }
+            }
+        }
 
         val pose = context.pose()
         pose.pushPose()

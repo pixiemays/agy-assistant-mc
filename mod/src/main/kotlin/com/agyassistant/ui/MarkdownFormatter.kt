@@ -1,6 +1,6 @@
 package com.agyassistant.ui
 
-import net.minecraft.ChatFormatting
+import net.minecraft.network.chat.ClickEvent
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
@@ -13,6 +13,15 @@ object MarkdownFormatter {
     private val CODE_BLOCK_STYLE: Style = Style.EMPTY.withColor(0xA5F3FC)
     private val HEADING_STYLE: Style = Style.EMPTY.withColor(0x38BDF8)
     private val BULLET_STYLE: Style = Style.EMPTY.withColor(0x93C5FD)
+
+    private val BARE_ID_REGEX = Regex("^([a-z0-9_.-]+:[a-z0-9_/.-]+)")
+    private val MD_LINK_REGEX = Regex("^\\[([^\\]]+)\\]\\((https?://[^)\\s]+)\\)")
+    private val BARE_URL_REGEX = Regex("^(https?://[^\\s)\\]>]+)")
+
+    private fun urlStyle(url: String): Style = Style.EMPTY
+        .withColor(0x60A5FA)
+        .withUnderlined(true)
+        .withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, url))
 
     fun format(markdown: String): Component {
         val root: MutableComponent = Component.empty()
@@ -60,6 +69,18 @@ object MarkdownFormatter {
         return root
     }
 
+    private fun refStyle(ref: GameReference): Style {
+        val color = when (ref.kind) {
+            RefKind.ITEM -> 0xFDE68A
+            RefKind.BLOCK -> 0x38BDF8
+            RefKind.ENTITY -> 0x5EEAD4
+        }
+        return Style.EMPTY
+            .withColor(color)
+            .withUnderlined(true)
+            .withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, "${ReferenceExtractor.CLICK_PREFIX}${ref.id}"))
+    }
+
     private fun appendInline(target: MutableComponent, text: String, baseStyle: Style) {
         var i = 0
         val n = text.length
@@ -73,14 +94,61 @@ object MarkdownFormatter {
         }
 
         while (i < n) {
-            // Inline code `...`
+            // Markdown link [label](https://...)
+            if (text[i] == '[') {
+                val m = MD_LINK_REGEX.find(text.substring(i))
+                if (m != null) {
+                    val label = m.groupValues[1]
+                    val url = m.groupValues[2].trimEnd('.', ',', ';')
+                    flush()
+                    target.append(Component.literal("$label ↗").withStyle(urlStyle(url)))
+                    i += m.value.length
+                    continue
+                }
+            }
+
+            // Bare https://... URL
+            if (text[i] == 'h' && (text.startsWith("https://", i) || text.startsWith("http://", i))) {
+                val m = BARE_URL_REGEX.find(text.substring(i))
+                if (m != null) {
+                    val url = m.groupValues[1].trimEnd('.', ',', ';')
+                    val shortHost = url.removePrefix("https://").removePrefix("http://").substringBefore('/').take(28)
+                    flush()
+                    target.append(Component.literal("$shortHost ↗").withStyle(urlStyle(url)))
+                    i += url.length
+                    continue
+                }
+            }
+
+            // Inline code `...` -> if valid game ID, render as clickable localized link!
             if (text[i] == '`') {
                 val end = text.indexOf('`', i + 1)
                 if (end > i + 1) {
+                    val inner = text.substring(i + 1, end)
+                    val ref = ReferenceExtractor.resolve(inner)
                     flush()
-                    target.append(Component.literal(text.substring(i + 1, end)).withStyle(CODE_STYLE))
+                    if (ref != null) {
+                        target.append(Component.literal("[${ref.displayName}]").withStyle(refStyle(ref)))
+                    } else {
+                        target.append(Component.literal(inner).withStyle(CODE_STYLE))
+                    }
                     i = end + 1
                     continue
+                }
+            }
+
+            // Bare namespace:path in prose (not inside a word)
+            if ((i == 0 || !text[i - 1].isLetterOrDigit()) && text[i] in 'a'..'z') {
+                val m = BARE_ID_REGEX.find(text.substring(i))
+                if (m != null) {
+                    val candidate = m.groupValues[1].trimEnd('.', ',', ';')
+                    val ref = ReferenceExtractor.resolve(candidate)
+                    if (ref != null) {
+                        flush()
+                        target.append(Component.literal("[${ref.displayName}]").withStyle(refStyle(ref)))
+                        i += candidate.length
+                        continue
+                    }
                 }
             }
 
@@ -108,7 +176,7 @@ object MarkdownFormatter {
                 }
             }
 
-            // Italic *...* (single asterisk, not preceded/followed by space at edges)
+            // Italic *...*
             if (text[i] == '*' && (i + 1 < n && text[i + 1] != ' ' && text[i + 1] != '*')) {
                 val end = text.indexOf('*', i + 1)
                 if (end > i + 1 && text[end - 1] != ' ') {

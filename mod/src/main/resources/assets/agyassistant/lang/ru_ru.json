@@ -32,6 +32,7 @@
   "screen.agyassistant.err.request_failed": "Ошибка запроса: %s",
   "screen.agyassistant.ref.hint_viewer": "ЛКМ: рецепт | ПКМ: использования | Shift+ЛКМ: прикрепить",
   "screen.agyassistant.ref.hint_vanilla": "ЛКМ: скопировать ID | Shift+ЛКМ: прикрепить",
+  "screen.agyassistant.link.open_browser": "ЛКМ: открыть ссылку в браузере",
   "screen.agyassistant.action.copy": "Скопировать текст",
   "screen.agyassistant.action.quote": "Процитировать в новом вопросе",
   "screen.agyassistant.action.edit": "Вставить в поле ввода",

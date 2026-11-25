@@ -40,6 +40,9 @@
                                 <label id="title-label">
                                     <text translate="true">screen.agyassistant.title</text>
                                     <shadow>false</shadow>
+                                    <margins>
+                                        <left>3</left>
+                                    </margins>
                                 </label>
 
                                 <label id="status-label">

@@ -25,6 +25,7 @@ import io.wispforest.owo.ui.core.Sizing
 import io.wispforest.owo.ui.core.Surface
 import io.wispforest.owo.ui.core.VerticalAlignment
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.ConfirmLinkScreen
 import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
@@ -466,41 +467,47 @@ class AssistantScreen(
             if (!isThinkingMsg && (msg.role == ChatRole.USER || msg.role == ChatRole.ASSISTANT)) {
                 val authorName = headerText.string
 
-                fun addMiniAction(labelKey: String, tooltipKey: String, onClick: (ScaledLabelComponent) -> Unit) {
-                    val lbl = ScaledLabelComponent(
-                        text = Component.translatable(labelKey),
-                        scale = 0.75f,
-                        defaultColor = 0x94A3B8,
-                        shadow = false,
-                    )
-                    lbl.cursorStyle(CursorStyle.HAND)
-                    lbl.tooltip(Component.translatable(tooltipKey))
-                    lbl.mouseEnter().subscribe { lbl.color(0xFFFFFF) }
-                    lbl.mouseLeave().subscribe { lbl.color(0x94A3B8) }
-                    lbl.mouseDown().subscribe { _, _, button ->
+                fun addIconAction(iconName: String, tooltipKey: String, onClick: (FlowLayout) -> Unit) {
+                    val btn = Containers.horizontalFlow(Sizing.fixed(13), Sizing.fixed(13))
+                    btn.horizontalAlignment(io.wispforest.owo.ui.core.HorizontalAlignment.CENTER)
+                    btn.verticalAlignment(VerticalAlignment.CENTER)
+                    btn.cursorStyle(CursorStyle.HAND)
+                    btn.tooltip(Component.translatable(tooltipKey))
+
+                    val tex = ResourceLocation.fromNamespaceAndPath("agyassistant", "textures/gui/$iconName.png")
+                    val icon = Components.texture(tex, 0, 0, 16, 16, 16, 16)
+                    icon.sizing(Sizing.fixed(9), Sizing.fixed(9))
+                    btn.child(icon)
+
+                    btn.mouseEnter().subscribe { btn.surface(Surface.flat(0x55334155)) }
+                    btn.mouseLeave().subscribe { btn.surface(Surface.BLANK) }
+                    btn.mouseDown().subscribe { _, _, button ->
                         if (button == 0) {
-                            onClick(lbl)
+                            onClick(btn)
                             true
                         } else false
                     }
-                    headerRow.child(lbl)
+                    headerRow.child(btn)
                 }
 
-                addMiniAction("screen.agyassistant.btn.copy_short", "screen.agyassistant.action.copy") { lbl ->
+                addIconAction("copy", "screen.agyassistant.action.copy") { btn ->
                     Minecraft.getInstance().keyboardHandler.clipboard = cleanCopyText
-                    lbl.text(Component.literal("✓"))
-                    lbl.color(0x4ADE80)
+                    btn.clearChildren()
+                    val okTex = ResourceLocation.fromNamespaceAndPath("agyassistant", "textures/gui/check.png")
+                    val okIcon = Components.texture(okTex, 0, 0, 16, 16, 16, 16)
+                    okIcon.sizing(Sizing.fixed(9), Sizing.fixed(9))
+                    btn.child(okIcon)
                     focusPromptInput()
                 }
 
-                addMiniAction("screen.agyassistant.btn.quote_short", "screen.agyassistant.action.quote") {
+                addIconAction("quote", "screen.agyassistant.action.quote") {
                     context.quote = QuoteInfo(author = authorName, text = cleanCopyText)
                     rebuildChips()
                     focusPromptInput()
                 }
 
                 if (msg.role == ChatRole.USER) {
-                    addMiniAction("screen.agyassistant.btn.edit_short", "screen.agyassistant.action.edit") {
+                    addIconAction("edit", "screen.agyassistant.action.edit") {
                         promptInput?.value = cleanCopyText
                         promptInput?.moveCursorToEnd(false)
                         focusPromptInput()
@@ -508,7 +515,7 @@ class AssistantScreen(
                 }
 
                 if (msg.role == ChatRole.ASSISTANT && isLastMessage && ChatHistoryStore.canRegenerate()) {
-                    addMiniAction("screen.agyassistant.btn.retry_short", "screen.agyassistant.action.retry") {
+                    addIconAction("retry", "screen.agyassistant.action.retry") {
                         ChatHistoryStore.regenerateLast()
                     }
                 }
@@ -527,6 +534,29 @@ class AssistantScreen(
             )
             body.horizontalSizing(Sizing.fill(100))
 
+            if (msg.role == ChatRole.ASSISTANT) {
+                body.onGameRefClick = { ref, button, shift ->
+                    ReferenceExtractor.handleClick(
+                        ref = ref,
+                        button = button,
+                        shiftDown = shift,
+                        onAttachItem = { item ->
+                            context.item = item
+                            rebuildChips()
+                            focusPromptInput()
+                        },
+                        onAttachTarget = { target ->
+                            context.target = target
+                            rebuildChips()
+                            focusPromptInput()
+                        },
+                    )
+                }
+                body.onUrlClick = { url ->
+                    ConfirmLinkScreen.confirmLinkNow(this, url)
+                }
+            }
+
             if (msg === ChatHistoryStore.activeAssistantMsg) {
                 activeAssistantLabel = body
             }
@@ -541,29 +571,15 @@ class AssistantScreen(
             card.child(body)
 
             if (msg.role == ChatRole.ASSISTANT) {
-                val refs = ReferenceExtractor.extract(msg.content.toString())
-                if (refs.isNotEmpty()) {
-                    val refsRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
-                    refsRow.gap(3)
-                    refsRow.margins(Insets.top(2))
-                    for (ref in refs) {
-                        refsRow.child(
-                            ReferenceExtractor.createChip(
-                                ref = ref,
-                                onAttachItem = { item ->
-                                    context.item = item
-                                    rebuildChips()
-                                    focusPromptInput()
-                                },
-                                onAttachTarget = { target ->
-                                    context.target = target
-                                    rebuildChips()
-                                    focusPromptInput()
-                                },
-                            )
+                if (!ChatHistoryStore.isStreaming || msg !== ChatHistoryStore.activeAssistantMsg) {
+                    val links = LinkPreviewComponent.extractLinks(msg.content.toString(), maxCount = 2)
+                    for (link in links) {
+                        card.child(
+                            LinkPreviewComponent.createCard(link) { url ->
+                                ConfirmLinkScreen.confirmLinkNow(this, url)
+                            }
                         )
                     }
-                    card.child(refsRow)
                 }
 
                 if (isLastMessage && !ChatHistoryStore.isStreaming && parsedReply != null && parsedReply.options.isNotEmpty()) {

@@ -32,6 +32,7 @@
   "screen.agyassistant.err.request_failed": "Request failed: %s",
   "screen.agyassistant.ref.hint_viewer": "LMB: Recipe | RMB: Uses | Shift+LMB: Attach",
   "screen.agyassistant.ref.hint_vanilla": "LMB: Copy ID | Shift+LMB: Attach",
+  "screen.agyassistant.link.open_browser": "LMB: Open link in browser",
   "screen.agyassistant.action.copy": "Copy message",
   "screen.agyassistant.action.quote": "Quote in next question",
   "screen.agyassistant.action.edit": "Reuse in input box",
