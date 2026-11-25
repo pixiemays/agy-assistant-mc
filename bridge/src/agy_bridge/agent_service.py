@@ -204,6 +204,8 @@ class AgentService:
             "--disable-slash-commands",
             "--print-timeout",
             "90s",
+            "--settings",
+            json.dumps({"permissions": {"deny": ["command(*)"]}}),
         ]
         if self._agy_conversation_id:
             cmd.extend(["--conversation", self._agy_conversation_id])

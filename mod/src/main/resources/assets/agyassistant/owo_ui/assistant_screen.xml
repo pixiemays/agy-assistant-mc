@@ -132,7 +132,7 @@
                                     </sizing>
                                     <vertical-alignment>center</vertical-alignment>
                                     <padding>
-                                        <top>3</top>
+                                        <top>4</top>
                                         <bottom>2</bottom>
                                         <left>5</left>
                                         <right>5</right>
@@ -141,7 +141,7 @@
                                         <text-box id="prompt-input">
                                             <sizing>
                                                 <horizontal method="fill">100</horizontal>
-                                                <vertical method="fixed">11</vertical>
+                                                <vertical method="fixed">10</vertical>
                                             </sizing>
                                         </text-box>
                                     </children>

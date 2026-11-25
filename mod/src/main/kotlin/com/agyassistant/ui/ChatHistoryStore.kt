@@ -178,7 +178,7 @@ object ChatHistoryStore {
                 activeFuture = null
                 activeAssistantMsg = null
                 if (!receivedAnyToken) {
-                    assistantMsg.content.clear()
+                    messages.remove(assistantMsg)
                     val errText = Component.translatable("screen.agyassistant.err.request_failed", "Empty response (try Retry/Reset)").string
                     add(ChatRole.ERROR, errText)
                 }
@@ -197,7 +197,7 @@ object ChatHistoryStore {
                 activeFuture = null
                 activeAssistantMsg = null
                 if (!receivedAnyToken) {
-                    assistantMsg.content.clear()
+                    messages.remove(assistantMsg)
                 }
                 val errText = Component.translatable("screen.agyassistant.err.request_failed", err).string
                 add(ChatRole.ERROR, errText)

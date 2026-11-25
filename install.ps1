@@ -7,25 +7,56 @@
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+$ScriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$GitHubRepo = "pixiemays/agy-assistant-mc"
+$script:ReleaseCache = $null
+
+function Get-LatestReleaseAsset {
+    param([string]$Pattern)
+    if (-not $script:ReleaseCache) {
+        $url = "https://api.github.com/repos/$GitHubRepo/releases/latest"
+        $script:ReleaseCache = Invoke-RestMethod -Uri $url -Headers @{ "User-Agent" = "agy-assistant-installer" } -TimeoutSec 15
+    }
+    return $script:ReleaseCache.assets | Where-Object { $_.name -like $Pattern } | Select-Object -First 1
+}
+
+function Download-ReleaseAsset {
+    param([string]$Pattern, [string]$DisplayName)
+    Write-Host "[..] Скачиваю $DisplayName с GitHub Releases..." -ForegroundColor Yellow
+    $asset = Get-LatestReleaseAsset -Pattern $Pattern
+    if (-not $asset) {
+        throw "Не найден $DisplayName в последнем релизе $GitHubRepo."
+    }
+    $tmpDir = Join-Path $env:TEMP "agy-assistant-install"
+    New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+    $dst = Join-Path $tmpDir $asset.name
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $dst -TimeoutSec 120
+    Write-Host "[OK] Скачан $($asset.name)" -ForegroundColor Green
+    return $dst
+}
+
 function Find-ModJar {
     $candidates = @(
-        (Join-Path $PSScriptRoot "mod\build\libs\agyassistant-0.1.0.jar"),
-        (Join-Path $PSScriptRoot "agyassistant-0.1.0.jar")
+        (Join-Path $ScriptRoot "mod\build\libs\agyassistant-0.1.0.jar"),
+        (Join-Path $ScriptRoot "agyassistant-0.1.0.jar")
     )
     foreach ($c in $candidates) {
         if (Test-Path $c) { return $c }
     }
-    $anyJar = Get-ChildItem -Path $PSScriptRoot -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
+    $anyJar = Get-ChildItem -Path $ScriptRoot -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($anyJar) { return $anyJar.FullName }
-    $buildJar = Get-ChildItem -Path (Join-Path $PSScriptRoot "mod\build\libs") -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($buildJar) { return $buildJar.FullName }
-    throw "Не найден agyassistant-*.jar. Сначала собери мод (mod\gradlew.bat build)."
+    $buildDir = Join-Path $ScriptRoot "mod\build\libs"
+    if (Test-Path $buildDir) {
+        $buildJar = Get-ChildItem -Path $buildDir -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($buildJar) { return $buildJar.FullName }
+    }
+    return Download-ReleaseAsset -Pattern "agyassistant-*.jar" -DisplayName "agyassistant.jar"
 }
 
 function Find-BridgeExe {
     $candidates = @(
-        (Join-Path $PSScriptRoot "bridge\dist\agy-bridge.exe"),
-        (Join-Path $PSScriptRoot "agy-bridge.exe")
+        (Join-Path $ScriptRoot "bridge\dist\agy-bridge.exe"),
+        (Join-Path $ScriptRoot "agy-bridge.exe")
     )
     foreach ($c in $candidates) {
         if (Test-Path $c) { return $c }
@@ -159,17 +190,16 @@ $cfgFile = Join-Path $cfgDir "config.json"
 
 if ($Mode -eq "bridge") {
     if (!$bridgeExe) {
-        Write-Host "[WARN] agy-bridge.exe не найден рядом со скриптом. Собери bridge\build_exe.ps1." -ForegroundColor Yellow
-    } else {
-        $running = Get-Process -Name "agy-bridge" -ErrorAction SilentlyContinue
-        if ($running) {
-            Write-Host "[..] Останавливаю запущенный agy-bridge.exe..." -ForegroundColor Yellow
-            $running | Stop-Process -Force
-            Start-Sleep -Milliseconds 500
-        }
-        Copy-Item -Path $bridgeExe -Destination (Join-Path $cfgDir "agy-bridge.exe") -Force
-        Write-Host "[OK] Установлен agy-bridge.exe" -ForegroundColor Green
+        $bridgeExe = Download-ReleaseAsset -Pattern "agy-bridge.exe" -DisplayName "agy-bridge.exe"
     }
+    $running = Get-Process -Name "agy-bridge" -ErrorAction SilentlyContinue
+    if ($running) {
+        Write-Host "[..] Останавливаю запущенный agy-bridge.exe..." -ForegroundColor Yellow
+        $running | Stop-Process -Force
+        Start-Sleep -Milliseconds 500
+    }
+    Copy-Item -Path $bridgeExe -Destination (Join-Path $cfgDir "agy-bridge.exe") -Force
+    Write-Host "[OK] Установлен agy-bridge.exe" -ForegroundColor Green
 } else {
     Write-Host "`nВыбери пресет API (можно поменять потом в игре через Config):" -ForegroundColor White
     Write-Host "  [1] OpenRouter (бесплатный Qwen3 :free)"

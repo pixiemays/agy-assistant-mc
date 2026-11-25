@@ -40,17 +40,23 @@
 
 ---
 
-## Быстрая установка (полуавтоматическая)
+## Быстрая установка (без сборки)
 
-Запусти двойным кликом **`install.bat`**:
-1. Установщик сам найдёт все сборки в `ElyPrismLauncher`, `PrismLauncher`, `ModrinthApp`, `CurseForge`, `ATLauncher` и `.minecraft`.
-2. Выбери номер нужной сборки (или `0`, чтобы указать путь вручную).
-3. Установщик сам проверит `mods/` и при необходимости скачает с Modrinth зависимости (`Kotlin for Forge` и `oωo-lib` для NeoForge 1.21.1).
-4. Выбери режим:
-   - **`[1]` Только мод (Direct API)** — для друзей и пользователей OpenRouter / Groq / Qwen / Ollama. `agy-bridge.exe` не нужен, установщик сам создаст `config.json` с выбранным пресетом.
-   - **`[2]` Полный режим (`agy-bridge.exe`)** — для Antigravity (`agy` CLI / Gemini SDK) или OpenCode CLI.
+### Вариант 1 — Одна команда в PowerShell (самый быстрый)
+```powershell
+irm https://raw.githubusercontent.com/pixiemays/agy-assistant-mc/main/install.ps1 | iex
+```
+Скрипт сам скачает последнюю версию мода (и `agy-bridge.exe`, если выбран полный режим) с [GitHub Releases](https://github.com/pixiemays/agy-assistant-mc/releases/latest) и зависимости с Modrinth.
 
-> **Как поделиться с друзьями:** положи в один архив `install.bat`, `install.ps1` и `mod/build/libs/agyassistant-0.1.0.jar` (~115 КБ). Друзьям достаточно распаковать и запустить `install.bat` -> выбрать режим `[1]`.
+### Вариант 2 — Готовый архив с GitHub Releases
+1. Скачай со страницы [Releases](https://github.com/pixiemays/agy-assistant-mc/releases/latest):
+   - **`agy-assistant-direct.zip`** (~215 КБ) — только мод для друзей (OpenRouter / Groq / Qwen / Ollama, без `.exe`).
+   - **`agy-assistant-full-windows.zip`** (~65 МБ) — полный комплект с `agy-bridge.exe` (для Antigravity / OpenCode).
+2. Распакуй и запусти двойным кликом **`install.bat`**:
+   - Установщик сам найдёт все сборки в `ElyPrismLauncher`, `PrismLauncher`, `ModrinthApp`, `CurseForge`, `ATLauncher` и `.minecraft`.
+   - Выбери номер нужной сборки (или `0`, чтобы указать путь вручную).
+   - Установщик сам проверит `mods/` и при необходимости скачает с Modrinth зависимости (`Kotlin for Forge` и `oωo-lib` для NeoForge 1.21.1).
+   - Выбери режим (`[1]` Direct API или `[2]` Antigravity/OpenCode с `agy-bridge.exe`).
 
 ---
 
