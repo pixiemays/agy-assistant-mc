@@ -57,9 +57,19 @@ class AssistantScreen(
     private val sendBtnRenderer = ButtonComponent.Renderer.flat(0xCC2563EB.toInt(), 0xFF3B82F6.toInt(), 0x881E3A8A.toInt())
     private val stopBtnRenderer = ButtonComponent.Renderer.flat(0xCCDC2626.toInt(), 0xFFEF4444.toInt(), 0x887F1D1D.toInt())
 
-    private val aiAvatarStack: ItemStack = ItemStack(Items.NETHER_STAR)
+    private val aiAvatarStack: ItemStack = ItemStack(Items.COMMAND_BLOCK)
     private val systemAvatarStack: ItemStack = ItemStack(Items.COMPARATOR)
     private val errorAvatarStack: ItemStack = ItemStack(Items.BARRIER)
+
+    private fun activeAiDisplayName(): String = when (ModConfig.data.provider) {
+        "opencode" -> "OpenCode"
+        "openai_compat" -> {
+            val raw = ModConfig.data.openaiModel.trim()
+            val shortName = raw.substringAfter('/').substringBefore(':').ifBlank { "AI" }
+            shortName.take(18)
+        }
+        else -> "Antigravity"
+    }
     private val playerAvatarStack: ItemStack by lazy {
         val head = ItemStack(Items.PLAYER_HEAD)
         Minecraft.getInstance().player?.let { p ->
@@ -85,6 +95,9 @@ class AssistantScreen(
     override fun build(rootComponent: FlowLayout) {
         val mainPanel = rootComponent.childById(FlowLayout::class.java, "main-panel")
         mainPanel?.surface(Surface.flat(0xEC0B1120.toInt()).and(Surface.outline(0xFF334155.toInt())))
+
+        rootComponent.childById(LabelComponent::class.java, "title-label")
+            ?.text(Component.literal(activeAiDisplayName()))
 
         statusLabel = rootComponent.childById(LabelComponent::class.java, "status-label")
         chipsBar = rootComponent.childById(FlowLayout::class.java, "chips-bar")
@@ -421,8 +434,13 @@ class AssistantScreen(
             avatarComp.showOverlay(false)
             headerRow.child(avatarComp)
 
+            val headerText = if (msg.role == ChatRole.ASSISTANT) {
+                Component.literal(activeAiDisplayName())
+            } else {
+                Component.translatable(headerKey)
+            }
             val header = ScaledLabelComponent(
-                text = Component.translatable(headerKey),
+                text = headerText,
                 scale = 0.78f,
                 defaultColor = headerColor,
                 shadow = false,
@@ -444,7 +462,7 @@ class AssistantScreen(
 
             if (!isThinkingMsg && (msg.role == ChatRole.USER || msg.role == ChatRole.ASSISTANT)) {
                 val miniRenderer = ButtonComponent.Renderer.flat(0x00000000, 0x44FFFFFF, 0x00000000)
-                val authorName = Component.translatable(headerKey).string
+                val authorName = headerText.string
 
                 // Copy button
                 val copyBtn = Components.button(Component.literal("Copy")) { btn ->
