@@ -296,7 +296,8 @@ class AssistantScreen(
         val label = activeAssistantLabel
         if (label != null) {
             label.color(0xF8FAFC)
-            label.text(MarkdownFormatter.format(msg.content.toString()))
+            val parsed = QuickOptionsParser.parse(msg.content.toString())
+            label.text(MarkdownFormatter.format(parsed.displayText))
             scrollToBottom()
         } else {
             rebuildMessageFeed()
@@ -319,7 +320,9 @@ class AssistantScreen(
         container.clearChildren()
 
         var lastBodyLabel: ScaledLabelComponent? = null
-        for (msg in ChatHistoryStore.messages) {
+        val totalMsgs = ChatHistoryStore.messages.size
+        for ((index, msg) in ChatHistoryStore.messages.withIndex()) {
+            val isLastMessage = index == totalMsgs - 1
             val (headerKey, headerColor, bgColor) = when (msg.role) {
                 ChatRole.USER -> Triple("screen.agyassistant.msg.you", 0x93C5FD, 0x991E293B.toInt())
                 ChatRole.ASSISTANT -> Triple("screen.agyassistant.msg.assistant", 0x86EFAC, 0x88111827.toInt())
@@ -342,8 +345,14 @@ class AssistantScreen(
             val isThinkingMsg = (msg === ChatHistoryStore.activeAssistantMsg) &&
                 ChatHistoryStore.isStreaming && !ChatHistoryStore.receivedAnyToken
 
-            val bodyComponent = if (msg.role == ChatRole.ASSISTANT && !isThinkingMsg) {
-                MarkdownFormatter.format(msg.content.toString())
+            val parsedReply = if (msg.role == ChatRole.ASSISTANT && !isThinkingMsg) {
+                QuickOptionsParser.parse(msg.content.toString())
+            } else {
+                null
+            }
+
+            val bodyComponent = if (parsedReply != null) {
+                MarkdownFormatter.format(parsedReply.displayText)
             } else {
                 Component.literal(msg.content.toString())
             }
@@ -392,6 +401,25 @@ class AssistantScreen(
                         )
                     }
                     card.child(refsRow)
+                }
+
+                if (isLastMessage && !ChatHistoryStore.isStreaming && parsedReply != null && parsedReply.options.isNotEmpty()) {
+                    val optRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
+                    optRow.gap(4)
+                    optRow.margins(Insets.top(3))
+                    val optRenderer = ButtonComponent.Renderer.flat(0xCC1E3A5F.toInt(), 0xFF2563EB.toInt(), 0x881E293B.toInt())
+                    for (option in parsedReply.options) {
+                        val optBtn = Components.button(Component.literal(option)) {
+                            if (!ChatHistoryStore.isStreaming) {
+                                dispatchChatRequest(option)
+                            }
+                        }.apply {
+                            renderer(optRenderer)
+                            (this as OwoComponent).sizing(Sizing.content(), Sizing.fixed(15))
+                        }
+                        optRow.child(optBtn as OwoComponent)
+                    }
+                    card.child(optRow)
                 }
             }
 

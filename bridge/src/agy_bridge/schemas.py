@@ -40,6 +40,7 @@ class ChatRequest(BaseModel):
     model: str | None = None
     api_key: str | None = None
     provider: str = "bridge"
+    clarify_vague: bool = True
 
 
 class HealthResponse(BaseModel):

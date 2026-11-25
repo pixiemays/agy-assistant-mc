@@ -21,10 +21,22 @@ Guidelines:
 """
 
 
-def build_system_prompt(extra: str | None = None) -> str:
+CLARIFY_PROMPT_ADDON = """
+Clarification policy:
+- If the user's question is already specific or has clear in-game context attached, answer directly without asking clarifying questions.
+- If the question is broad or ambiguous (for example: "how to make power", "help with bees", "why doesn't this work" with no context), ask 1 short clarifying question first so you can give a much more accurate answer, and end your message with a single line in this exact format:
+[options: Short option 1 | Short option 2 | Short option 3]
+- Provide 2 to 4 short options (max ~32 characters each) in the user's language.
+"""
+
+
+def build_system_prompt(extra: str | None = None, clarify_vague: bool = True) -> str:
+    prompt = DEFAULT_SYSTEM_PROMPT
+    if clarify_vague:
+        prompt = f"{prompt}\n{CLARIFY_PROMPT_ADDON}"
     if extra and extra.strip():
-        return f"{DEFAULT_SYSTEM_PROMPT}\n\nAdditional user instructions:\n{extra.strip()}"
-    return DEFAULT_SYSTEM_PROMPT
+        prompt = f"{prompt}\n\nAdditional user instructions:\n{extra.strip()}"
+    return prompt
 
 
 def _format_target(target: TargetData) -> str:

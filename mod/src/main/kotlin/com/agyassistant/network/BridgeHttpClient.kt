@@ -29,6 +29,7 @@ private data class ChatPayload(
     val model: String? = null,
     @SerializedName("api_key") val apiKey: String? = null,
     val provider: String = "bridge",
+    @SerializedName("clarify_vague") val clarifyVague: Boolean = true,
 )
 
 object BridgeHttpClient {
@@ -94,6 +95,7 @@ object BridgeHttpClient {
             model = cfg.model.ifBlank { null },
             apiKey = cfg.apiKey.ifBlank { null },
             provider = cfg.provider,
+            clarifyVague = cfg.clarifyVagueQuestions,
         )
 
         val req = HttpRequest.newBuilder()

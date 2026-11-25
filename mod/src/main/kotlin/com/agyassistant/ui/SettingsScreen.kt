@@ -130,6 +130,7 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         val autoStartCheck = Components.checkbox(Component.literal("Auto-start agy-bridge")).checked(cfg.autoStartBridge)
         val readDirCheck = Components.checkbox(Component.literal("Read-only access to modpack dir")).checked(cfg.allowGameDirRead)
         val defaultShotCheck = Components.checkbox(Component.literal("Attach screenshot by default")).checked(cfg.attachScreenshotByDefault)
+        val clarifyCheck = Components.checkbox(Component.literal("Clarify vague questions (quick reply buttons)")).checked(cfg.clarifyVagueQuestions)
 
         form.child(hostPortRow)
         form.child(Components.label(Component.literal("Gemini API Key (empty = use agy CLI):")))
@@ -141,6 +142,7 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         form.child(autoStartCheck as OwoComponent)
         form.child(readDirCheck as OwoComponent)
         form.child(defaultShotCheck as OwoComponent)
+        form.child(clarifyCheck as OwoComponent)
 
         val scroll = Containers.verticalScroll(Sizing.fill(100), Sizing.expand(100), form)
         scroll.scrollbar(ScrollContainer.Scrollbar.vanillaFlat())
@@ -172,6 +174,7 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
                 autoStartBridge = autoStartCheck.selected()
                 allowGameDirRead = readDirCheck.selected()
                 attachScreenshotByDefault = defaultShotCheck.selected()
+                clarifyVagueQuestions = clarifyCheck.selected()
             }
             Minecraft.getInstance().setScreen(parent)
         }.apply {

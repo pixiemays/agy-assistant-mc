@@ -13,6 +13,7 @@ data class ModConfigData(
     var autoStartBridge: Boolean = true,
     var allowGameDirRead: Boolean = false,
     var attachScreenshotByDefault: Boolean = false,
+    var clarifyVagueQuestions: Boolean = true,
     var maxScreenshotWidth: Int = 1280,
     var screenshotJpegQuality: Float = 0.80f,
     var customBridgeCommand: String = "",

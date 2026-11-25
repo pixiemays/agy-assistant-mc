@@ -33,6 +33,7 @@ class _AgentConfigKey:
     system_prompt_extra: str | None
     model: str | None
     api_key: str | None
+    clarify_vague: bool = True
 
 
 def _find_agy_cli() -> str | None:
@@ -110,7 +111,7 @@ class AgentService:
 
         workspaces = [key.workspace] if key.workspace else None
         config = LocalAgentConfig(
-            system_instructions=build_system_prompt(key.system_prompt_extra),
+            system_instructions=build_system_prompt(key.system_prompt_extra, key.clarify_vague),
             capabilities=None,  # Read-only mode by default for safety
             workspaces=workspaces,
             model=key.model if key.model else None,
@@ -153,6 +154,7 @@ class AgentService:
             system_prompt_extra=req.system_prompt_extra,
             model=req.model,
             api_key=api_key,
+            clarify_vague=req.clarify_vague,
         )
         prompt = build_prompt_parts(req)
         try:
@@ -190,7 +192,7 @@ class AgentService:
 
         user_text = build_text_prompt(req, str(shot_path) if shot_path else None)
         if self._agy_conversation_id is None:
-            sys_prompt = build_system_prompt(req.system_prompt_extra)
+            sys_prompt = build_system_prompt(req.system_prompt_extra, req.clarify_vague)
             full_prompt = f"{sys_prompt}\n\n---\n\n{user_text}"
         else:
             full_prompt = user_text
@@ -315,7 +317,7 @@ class AgentService:
 
         user_text = build_text_prompt(req, str(shot_path) if shot_path else None)
         if self._opencode_session_id is None:
-            sys_prompt = build_system_prompt(req.system_prompt_extra)
+            sys_prompt = build_system_prompt(req.system_prompt_extra, req.clarify_vague)
             full_prompt = f"{sys_prompt}\n\n---\n\n{user_text}"
         else:
             full_prompt = user_text

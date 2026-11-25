@@ -31,6 +31,12 @@ object OpenAiCompatClient {
             "Do NOT use Markdown bold (**...** or __...__), because Minecraft's pixel font renders bold poorly. " +
             "Use plain text, short bullet lists (- ), and inline backticks for item/block IDs."
 
+    private const val CLARIFY_INSTRUCTIONS =
+        "\n- If the user's question is already specific or has clear in-game context, answer directly without asking. " +
+            "If the question is broad or ambiguous (e.g. 'how to make power', 'help with bees', 'what is wrong'), " +
+            "ask 1 short clarifying question first and end your message with a single line in this exact format: " +
+            "[options: Short option 1 | Short option 2 | Short option 3] (2-4 short options, max 32 chars each, in the user's language)."
+
     @Synchronized
     fun resetConversation() {
         history.clear()
@@ -78,10 +84,15 @@ object OpenAiCompatClient {
         }
 
         val messagesArray = JsonArray()
-        val sysPrompt = if (cfg.systemPromptExtra.isNotBlank()) {
-            "$DEFAULT_SYSTEM_PROMPT\n\n${cfg.systemPromptExtra.trim()}"
-        } else {
-            DEFAULT_SYSTEM_PROMPT
+        val sysPrompt = buildString {
+            append(DEFAULT_SYSTEM_PROMPT)
+            if (cfg.clarifyVagueQuestions) {
+                append(CLARIFY_INSTRUCTIONS)
+            }
+            if (cfg.systemPromptExtra.isNotBlank()) {
+                append("\n\n")
+                append(cfg.systemPromptExtra.trim())
+            }
         }
         messagesArray.add(JsonObject().apply {
             addProperty("role", "system")
