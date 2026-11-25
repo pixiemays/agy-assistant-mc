@@ -92,9 +92,17 @@ class RichMessageComponent(
     var onUrlClick: ((String) -> Unit)? = null
 
     fun markdown(newMarkdown: String): RichMessageComponent {
+        val prevH = contentHeightPx
         this.markdown = newMarkdown
         this.lastLayoutWidth = -1
-        notifyParentIfMounted()
+        if (width > 0) {
+            ensureLayout(width)
+            if (contentHeightPx != prevH) {
+                notifyParentIfMounted()
+            }
+        } else {
+            notifyParentIfMounted()
+        }
         return this
     }
 

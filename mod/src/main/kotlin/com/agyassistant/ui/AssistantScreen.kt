@@ -188,6 +188,14 @@ class AssistantScreen(
         setFocused(input)
     }
 
+    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
+        val input = promptInput
+        if (input != null && (input as OwoComponent).isInBoundingBox(mouseX, mouseY)) {
+            focusPromptInput()
+        }
+        return super.mouseClicked(mouseX, mouseY, button)
+    }
+
     override fun charTyped(codePoint: Char, modifiers: Int): Boolean {
         val input = promptInput
         if (input != null && !input.isFocused) {
