@@ -63,7 +63,7 @@ irm https://raw.githubusercontent.com/pixiemays/agy-assistant-mc/main/install.ps
 2. Распакуй и запусти `install.bat` — сам поставит мод, зависимости и предложит режим.
 
 ### Совсем вручную
-В `mods/` положи `agyassistant-0.1.0.jar`, `kotlinforforge-neoforge` (5.x) и `owo-lib-neoforge` (0.12.x). Для Antigravity/OpenCode дополнительно — `agy-bridge.exe` в `config/agyassistant/`.
+В `mods/` положи `agyassistant-0.2.0.jar`, `kotlinforforge-neoforge` (5.x) и `owo-lib-neoforge` (0.12.x). Для Antigravity/OpenCode дополнительно — `agy-bridge.exe` в `config/agyassistant/`.
 
 ---
 

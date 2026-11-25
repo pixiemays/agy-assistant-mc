@@ -37,8 +37,8 @@ function Download-ReleaseAsset {
 
 function Find-ModJar {
     $candidates = @(
-        (Join-Path $ScriptRoot "mod\build\libs\agyassistant-0.1.0.jar"),
-        (Join-Path $ScriptRoot "agyassistant-0.1.0.jar")
+        (Join-Path $ScriptRoot "mod\build\libs\agyassistant-0.2.0.jar"),
+        (Join-Path $ScriptRoot "agyassistant-0.2.0.jar")
     )
     foreach ($c in $candidates) {
         if (Test-Path $c) { return $c }
