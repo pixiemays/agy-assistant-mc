@@ -22,9 +22,14 @@ import io.wispforest.owo.ui.core.Component as OwoComponent
 import io.wispforest.owo.ui.core.Insets
 import io.wispforest.owo.ui.core.Sizing
 import io.wispforest.owo.ui.core.Surface
+import io.wispforest.owo.ui.core.VerticalAlignment
 import net.minecraft.client.Minecraft
+import net.minecraft.core.component.DataComponents
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import net.minecraft.world.item.component.ResolvableProfile
 import org.lwjgl.glfw.GLFW
 import java.util.concurrent.CompletableFuture
 
@@ -51,6 +56,17 @@ class AssistantScreen(
 
     private val sendBtnRenderer = ButtonComponent.Renderer.flat(0xCC2563EB.toInt(), 0xFF3B82F6.toInt(), 0x881E3A8A.toInt())
     private val stopBtnRenderer = ButtonComponent.Renderer.flat(0xCCDC2626.toInt(), 0xFFEF4444.toInt(), 0x887F1D1D.toInt())
+
+    private val aiAvatarStack: ItemStack = ItemStack(Items.NETHER_STAR)
+    private val systemAvatarStack: ItemStack = ItemStack(Items.COMPARATOR)
+    private val errorAvatarStack: ItemStack = ItemStack(Items.BARRIER)
+    private val playerAvatarStack: ItemStack by lazy {
+        val head = ItemStack(Items.PLAYER_HEAD)
+        Minecraft.getInstance().player?.let { p ->
+            runCatching { head.set(DataComponents.PROFILE, ResolvableProfile(p.gameProfile)) }
+        }
+        head
+    }
 
     init {
         pendingScreenshot?.thenAccept { info ->
@@ -391,7 +407,19 @@ class AssistantScreen(
             card.gap(2)
 
             val headerRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content())
+            headerRow.verticalAlignment(VerticalAlignment.CENTER)
             headerRow.gap(3)
+
+            val avatarStack = when (msg.role) {
+                ChatRole.USER -> playerAvatarStack
+                ChatRole.ASSISTANT -> aiAvatarStack
+                ChatRole.SYSTEM -> systemAvatarStack
+                ChatRole.ERROR -> errorAvatarStack
+            }
+            val avatarComp = Components.item(avatarStack)
+            avatarComp.sizing(Sizing.fixed(11), Sizing.fixed(11))
+            avatarComp.showOverlay(false)
+            headerRow.child(avatarComp)
 
             val header = ScaledLabelComponent(
                 text = Component.translatable(headerKey),
