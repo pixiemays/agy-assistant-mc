@@ -128,6 +128,27 @@ object ContextChipComponent {
                 )
             )
         }
+
+        ctx.quote?.let { q ->
+            val oneLine = q.text.replace(Regex("\\s+"), " ").trim()
+            val snippet = if (oneLine.length > 34) oneLine.take(34) + "…" else oneLine
+            bar.child(
+                create(
+                    category = "↩ ${q.author}:",
+                    name = "\"$snippet\"",
+                    categoryColorRgb = 0x93C5FD,
+                    bgArgb = 0xCC1E293B.toInt(),
+                    borderArgb = 0xFF64748B.toInt(),
+                    icon = ItemStack(Items.WRITABLE_BOOK),
+                    onRemove = if (removable) {
+                        {
+                            ctx.quote = null
+                            onChanged?.invoke()
+                        }
+                    } else null,
+                )
+            )
+        }
     }
 
     private fun cleanDisplayName(displayName: String?, rawId: String): String {

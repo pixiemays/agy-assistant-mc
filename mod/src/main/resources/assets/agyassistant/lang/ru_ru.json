@@ -9,6 +9,7 @@
   "screen.agyassistant.btn.reset": "Сброс",
   "screen.agyassistant.btn.settings": "Настройки",
   "screen.agyassistant.btn.send": "Отправить",
+  "screen.agyassistant.btn.stop": "Стоп",
   "screen.agyassistant.btn.capture_screen": "Скрин",
   "screen.agyassistant.checkbox.screenshot": "Прикрепить скрин",
   "screen.agyassistant.input.placeholder": "Задайте вопрос по Minecraft...",
@@ -24,10 +25,15 @@
   "screen.agyassistant.msg.assistant": "Antigravity",
   "screen.agyassistant.msg.system": "Система",
   "screen.agyassistant.msg.thinking": "Думаю",
+  "screen.agyassistant.msg.stopped": "(Остановлено)",
   "screen.agyassistant.msg.welcome": "Готов помочь! Нажмите Alt+G на блоке, мобе или предмете в инвентаре/JEI/EMI, чтобы прикрепить контекст.",
   "screen.agyassistant.msg.reset_done": "История диалога очищена.",
   "screen.agyassistant.err.bridge_offline": "Локальный мост agy-bridge не отвечает (порт %d). Проверьте настройки или запустите мост.",
   "screen.agyassistant.err.request_failed": "Ошибка запроса: %s",
   "screen.agyassistant.ref.hint_viewer": "ЛКМ: рецепт | ПКМ: использования | Shift+ЛКМ: прикрепить",
-  "screen.agyassistant.ref.hint_vanilla": "ЛКМ: скопировать ID | Shift+ЛКМ: прикрепить"
+  "screen.agyassistant.ref.hint_vanilla": "ЛКМ: скопировать ID | Shift+ЛКМ: прикрепить",
+  "screen.agyassistant.action.copy": "Скопировать текст",
+  "screen.agyassistant.action.quote": "Процитировать в новом вопросе",
+  "screen.agyassistant.action.edit": "Вставить в поле ввода",
+  "screen.agyassistant.action.retry": "Перегенерировать ответ"
 }

@@ -9,6 +9,7 @@
   "screen.agyassistant.btn.reset": "Reset",
   "screen.agyassistant.btn.settings": "Config",
   "screen.agyassistant.btn.send": "Send",
+  "screen.agyassistant.btn.stop": "Stop",
   "screen.agyassistant.btn.capture_screen": "Shot",
   "screen.agyassistant.checkbox.screenshot": "Attach screenshot",
   "screen.agyassistant.input.placeholder": "Ask about Minecraft...",
@@ -24,10 +25,15 @@
   "screen.agyassistant.msg.assistant": "Antigravity",
   "screen.agyassistant.msg.system": "System",
   "screen.agyassistant.msg.thinking": "Thinking",
+  "screen.agyassistant.msg.stopped": "(Stopped)",
   "screen.agyassistant.msg.welcome": "Ready! Press Alt+G while looking at a block/entity or hovering an item in inventory/JEI/EMI to attach context.",
   "screen.agyassistant.msg.reset_done": "Conversation history cleared.",
   "screen.agyassistant.err.bridge_offline": "Local agy-bridge is not responding on port %d. Check settings or bridge binary.",
   "screen.agyassistant.err.request_failed": "Request failed: %s",
   "screen.agyassistant.ref.hint_viewer": "LMB: Recipe | RMB: Uses | Shift+LMB: Attach",
-  "screen.agyassistant.ref.hint_vanilla": "LMB: Copy ID | Shift+LMB: Attach"
+  "screen.agyassistant.ref.hint_vanilla": "LMB: Copy ID | Shift+LMB: Attach",
+  "screen.agyassistant.action.copy": "Copy message",
+  "screen.agyassistant.action.quote": "Quote in next question",
+  "screen.agyassistant.action.edit": "Reuse in input box",
+  "screen.agyassistant.action.retry": "Regenerate reply"
 }

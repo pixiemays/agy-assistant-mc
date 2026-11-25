@@ -36,10 +36,16 @@ data class ScreenshotInfo(
     val height: Int,
 )
 
+data class QuoteInfo(
+    val author: String,
+    val text: String,
+)
+
 data class AttachedContext(
     var target: TargetInfo? = null,
     var item: ItemInfo? = null,
     var screenshot: ScreenshotInfo? = null,
+    @Transient var quote: QuoteInfo? = null,
 ) {
-    fun isEmpty(): Boolean = target == null && item == null && screenshot == null
+    fun isEmpty(): Boolean = target == null && item == null && screenshot == null && quote == null
 }
