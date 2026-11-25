@@ -47,6 +47,7 @@ class AssistantScreen(
     private var activeAssistantLabel: ScaledLabelComponent? = null
     private var thinkingTick = 0
     private var historyCursor = -1
+    private var pendingScrollToBottom = false
 
     private val sendBtnRenderer = ButtonComponent.Renderer.flat(0xCC2563EB.toInt(), 0xFF3B82F6.toInt(), 0x881E3A8A.toInt())
     private val stopBtnRenderer = ButtonComponent.Renderer.flat(0xCCDC2626.toInt(), 0xFFEF4444.toInt(), 0x887F1D1D.toInt())
@@ -144,6 +145,7 @@ class AssistantScreen(
     override fun init() {
         super.init()
         focusPromptInput()
+        scrollToBottom()
     }
 
     private fun focusPromptInput() {
@@ -163,6 +165,10 @@ class AssistantScreen(
 
     override fun tick() {
         super.tick()
+        if (pendingScrollToBottom) {
+            pendingScrollToBottom = false
+            messagesScroll?.scrollTo(1.0)
+        }
         if (ChatHistoryStore.isStreaming && !ChatHistoryStore.receivedAnyToken) {
             thinkingTick++
             if (thinkingTick % 6 == 0) {
@@ -545,5 +551,6 @@ class AssistantScreen(
 
     private fun scrollToBottom() {
         messagesScroll?.scrollTo(1.0)
+        pendingScrollToBottom = true
     }
 }
