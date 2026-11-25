@@ -73,7 +73,12 @@ object ReferenceExtractor {
         if (BuiltInRegistries.BLOCK.containsKey(loc)) {
             val block = BuiltInRegistries.BLOCK.get(loc)
             val blockItem = block.asItem()
-            val stack = if (blockItem != Items.AIR) ItemStack(blockItem) else ItemStack(Items.GRASS_BLOCK)
+            val stack = when {
+                blockItem != Items.AIR -> ItemStack(blockItem)
+                loc.path == "lava" -> ItemStack(Items.LAVA_BUCKET)
+                loc.path == "water" -> ItemStack(Items.WATER_BUCKET)
+                else -> ItemStack(Items.GRASS_BLOCK)
+            }
             return GameReference(RefKind.BLOCK, loc, block.name.string, stack)
         }
         if (BuiltInRegistries.ENTITY_TYPE.containsKey(loc)) {

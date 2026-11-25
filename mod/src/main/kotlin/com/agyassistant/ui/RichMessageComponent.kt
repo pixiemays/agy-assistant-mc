@@ -612,7 +612,7 @@ class RichMessageComponent(
                     pose.popPose()
 
                     val textH = ceil(font.lineHeight * s).toInt()
-                    val textY = py + (item.h - textH) / 2 + 1
+                    val textY = py + (item.h - textH) / 2
                     pose.pushPose()
                     pose.translate((px + 15).toFloat(), textY.toFloat(), 0f)
                     if (s != 1.0f) pose.scale(s, s, 1f)
