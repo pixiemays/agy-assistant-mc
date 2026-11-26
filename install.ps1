@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$TargetDir = "",
     [ValidateSet("", "direct", "bridge")]
     [string]$Mode = ""
