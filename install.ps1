@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$TargetDir = "",
     [ValidateSet("", "direct", "bridge")]
     [string]$Mode = ""
@@ -105,7 +105,7 @@ function Find-MinecraftInstances {
         })
     }
 
-    return ,$found.ToArray()
+    return $found.ToArray()
 }
 
 function Ensure-ModrinthDep {
