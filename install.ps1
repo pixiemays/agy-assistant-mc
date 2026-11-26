@@ -1,23 +1,27 @@
-﻿param(
+param(
     [string]$TargetDir = "",
     [ValidateSet("", "direct", "bridge")]
     [string]$Mode = ""
 )
 
 $ErrorActionPreference = "Stop"
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+} catch {}
 
 $ScriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 $GitHubRepo = "pixiemays/agy-assistant-mc"
+$UserAgentHeader = @{ "User-Agent" = "agy-assistant-installer" }
 $script:ReleaseCache = $null
 
 function Get-LatestReleaseAsset {
     param([string]$Pattern)
     if (-not $script:ReleaseCache) {
         $url = "https://api.github.com/repos/$GitHubRepo/releases/latest"
-        $script:ReleaseCache = Invoke-RestMethod -Uri $url -Headers @{ "User-Agent" = "agy-assistant-installer" } -TimeoutSec 15
+        $script:ReleaseCache = Invoke-RestMethod -Uri $url -Headers $UserAgentHeader -TimeoutSec 20
     }
-    return $script:ReleaseCache.assets | Where-Object { $_.name -like $Pattern } | Select-Object -First 1
+    return @($script:ReleaseCache.assets) | Where-Object { $_.name -like $Pattern } | Select-Object -First 1
 }
 
 function Download-ReleaseAsset {
@@ -30,7 +34,7 @@ function Download-ReleaseAsset {
     $tmpDir = Join-Path $env:TEMP "agy-assistant-install"
     New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
     $dst = Join-Path $tmpDir $asset.name
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $dst -TimeoutSec 120
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $dst -Headers $UserAgentHeader -UseBasicParsing -TimeoutSec 120
     Write-Host "[OK] Скачан $($asset.name)" -ForegroundColor Green
     return $dst
 }
@@ -101,7 +105,7 @@ function Find-MinecraftInstances {
         })
     }
 
-    return $found
+    return ,$found.ToArray()
 }
 
 function Ensure-ModrinthDep {
@@ -111,22 +115,32 @@ function Ensure-ModrinthDep {
         [string]$ProjectSlug,
         [string]$DisplayName
     )
-    $existing = Get-ChildItem -Path $ModsDir -Filter $Pattern -ErrorAction SilentlyContinue
-    if ($existing) {
+    $existing = @(Get-ChildItem -Path $ModsDir -Filter $Pattern -ErrorAction SilentlyContinue)
+    if ($existing.Count -gt 0) {
         Write-Host "[OK] $DisplayName уже установлен: $($existing[0].Name)" -ForegroundColor Green
         return
     }
     Write-Host "[..] Скачиваю $DisplayName для NeoForge 1.21.1 с Modrinth..." -ForegroundColor Yellow
     $url = "https://api.modrinth.com/v2/project/$ProjectSlug/version?loaders=%5B%22neoforge%22%5D&game_versions=%5B%221.21.1%22%5D"
-    $versions = Invoke-RestMethod -Uri $url -TimeoutSec 15
-    if (!$versions -or $versions.Count -eq 0) {
+    $versions = @(Invoke-RestMethod -Uri $url -Headers $UserAgentHeader -TimeoutSec 20)
+    if ($versions.Count -eq 0) {
         throw "Не удалось найти $DisplayName (NeoForge 1.21.1) на Modrinth."
     }
-    $file = $versions[0].files | Where-Object { $_.primary } | Select-Object -First 1
-    if (!$file) { $file = $versions[0].files[0] }
+    $files = @($versions[0].files)
+    $file = $files | Where-Object { $_.primary } | Select-Object -First 1
+    if (-not $file -and $files.Count -gt 0) { $file = $files[0] }
+    if (-not $file) {
+        throw "Не найден файл $DisplayName в ответе Modrinth."
+    }
     $dst = Join-Path $ModsDir $file.filename
-    Invoke-WebRequest -Uri $file.url -OutFile $dst -TimeoutSec 60
+    Invoke-WebRequest -Uri $file.url -OutFile $dst -Headers $UserAgentHeader -UseBasicParsing -TimeoutSec 60
     Write-Host "[OK] Скачан $DisplayName -> $($file.filename)" -ForegroundColor Green
+}
+
+function Write-Utf8NoBom {
+    param([string]$Path, [string]$Content)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
 }
 
 Write-Host "=============================================" -ForegroundColor Cyan
@@ -138,7 +152,7 @@ $modJar = Find-ModJar
 $bridgeExe = Find-BridgeExe
 
 if ([string]::IsNullOrWhiteSpace($TargetDir)) {
-    $instances = Find-MinecraftInstances
+    $instances = @(Find-MinecraftInstances)
     if ($instances.Count -gt 0) {
         Write-Host "Найденные сборки:" -ForegroundColor White
         for ($i = 0; $i -lt $instances.Count; $i++) {
@@ -146,17 +160,26 @@ if ([string]::IsNullOrWhiteSpace($TargetDir)) {
             Write-Host ("  [{0}] {1} ({2})" -f ($i + 1), $inst.Name, $inst.Launcher)
         }
         Write-Host "  [0] Указать путь вручную"
-        $choice = Read-Host "`nВыбери номер сборки"
+        $choice = (Read-Host "`nВыбери номер сборки").Trim()
         if ($choice -eq "0" -or [string]::IsNullOrWhiteSpace($choice)) {
             $TargetDir = Read-Host "Путь к папке minecraft (где лежит mods/)"
         } else {
-            $idx = [int]$choice - 1
-            if ($idx -lt 0 -or $idx -ge $instances.Count) { throw "Неверный номер." }
+            $parsedNum = 0
+            if (-not [int]::TryParse($choice, [ref]$parsedNum)) {
+                throw "Неверный номер: '$choice'."
+            }
+            $idx = $parsedNum - 1
+            if ($idx -lt 0 -or $idx -ge $instances.Count) { throw "Неверный номер: $parsedNum." }
             $TargetDir = $instances[$idx].McDir
         }
     } else {
         $TargetDir = Read-Host "Инстансы не найдены. Укажи путь к папке minecraft (где лежит mods/)"
     }
+}
+
+$TargetDir = $TargetDir.Trim().Trim('"', "'")
+if ([string]::IsNullOrWhiteSpace($TargetDir)) {
+    throw "Путь к папке Minecraft не указан."
 }
 
 $modsDir = Join-Path $TargetDir "mods"
@@ -175,7 +198,7 @@ New-Item -ItemType Directory -Force -Path $cfgDir | Out-Null
 
 # 1. Зависимости
 Ensure-ModrinthDep -ModsDir $modsDir -Pattern "*kotlinforforge*" -ProjectSlug "kotlin-for-forge" -DisplayName "Kotlin for Forge"
-Ensure-ModrinthDep -ModsDir $modsDir -Pattern "*owo-lib*" -ProjectSlug "owo-lib" -DisplayName "oωo-lib"
+Ensure-ModrinthDep -ModsDir $modsDir -Pattern "*owo-lib*" -ProjectSlug "owo-lib" -DisplayName "owo-lib"
 
 # 2. Сам мод (удаляем старые версии agyassistant-*.jar чтобы не было дубликата)
 Get-ChildItem -Path $modsDir -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -185,9 +208,9 @@ Write-Host "[OK] Установлен мод: $(Split-Path $modJar -Leaf)" -Fore
 # 3. Режим работы
 if ([string]::IsNullOrWhiteSpace($Mode)) {
     Write-Host "`nВыбери режим работы:" -ForegroundColor White
-    Write-Host "  [1] Только мод (OpenRouter / Groq / Qwen / Ollama — без .exe, идеально для друзей)"
+    Write-Host "  [1] Только мод (OpenRouter / Gemini / Groq / Ollama — без .exe, идеально для друзей)"
     Write-Host "  [2] Полный режим (Antigravity / OpenCode + agy-bridge.exe)"
-    $m = Read-Host "Режим [1/2]"
+    $m = (Read-Host "Режим [1/2]").Trim()
     $Mode = if ($m -eq "2") { "bridge" } else { "direct" }
 }
 
@@ -197,29 +220,47 @@ if ($Mode -eq "bridge") {
     if (!$bridgeExe) {
         $bridgeExe = Download-ReleaseAsset -Pattern "agy-bridge.exe" -DisplayName "agy-bridge.exe"
     }
-    $running = Get-Process -Name "agy-bridge" -ErrorAction SilentlyContinue
-    if ($running) {
+    $running = @(Get-Process -Name "agy-bridge" -ErrorAction SilentlyContinue)
+    if ($running.Count -gt 0) {
         Write-Host "[..] Останавливаю запущенный agy-bridge.exe..." -ForegroundColor Yellow
         $running | Stop-Process -Force
         Start-Sleep -Milliseconds 500
     }
     Copy-Item -Path $bridgeExe -Destination (Join-Path $cfgDir "agy-bridge.exe") -Force
     Write-Host "[OK] Установлен agy-bridge.exe" -ForegroundColor Green
-} else {
-    Write-Host "`nВыбери пресет API (можно поменять потом в игре через Config):" -ForegroundColor White
-    Write-Host "  [1] OpenRouter (бесплатный openrouter/free — автовыбор модели)"
-    Write-Host "  [2] Groq (быстрый бесплатный Qwen3-32B)"
-    Write-Host "  [3] Ollama (локально на своей видеокарте, без ключа)"
-    $p = Read-Host "Пресет [1/2/3]"
 
+    $configObj = [ordered]@{
+        provider        = "bridge"
+        bridgeHost      = "127.0.0.1"
+        bridgePort      = 18765
+        autoStartBridge = $true
+        firstLaunch     = $false
+    }
+    Write-Utf8NoBom -Path $cfgFile -Content ($configObj | ConvertTo-Json -Depth 4)
+    Write-Host "[OK] Настроен config.json (режим bridge)" -ForegroundColor Green
+} else {
+    Write-Host "`nВыбери пресет API (можно поменять потом в игре через Настройки):" -ForegroundColor White
+    Write-Host "  [1] OpenRouter (бесплатный openrouter/free — автовыбор модели)"
+    Write-Host "  [2] Gemini (Google AI Studio — бесплатный Flash)"
+    Write-Host "  [3] Groq (быстрый бесплатный Qwen3-32B)"
+    Write-Host "  [4] Ollama (локально на своей видеокарте, без ключа)"
+    $p = (Read-Host "Пресет [1/2/3/4]").Trim()
+
+    $presetKey = "openrouter"
     $baseUrl = "https://openrouter.ai/api/v1"
     $modelName = "openrouter/free"
     $needKey = $true
 
     if ($p -eq "2") {
+        $presetKey = "gemini"
+        $baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai"
+        $modelName = "gemini-2.0-flash"
+    } elseif ($p -eq "3") {
+        $presetKey = "groq"
         $baseUrl = "https://api.groq.com/openai/v1"
         $modelName = "qwen/qwen3-32b"
-    } elseif ($p -eq "3") {
+    } elseif ($p -eq "4") {
+        $presetKey = "ollama"
         $baseUrl = "http://127.0.0.1:11434/v1"
         $modelName = "qwen3:8b"
         $needKey = $false
@@ -227,27 +268,30 @@ if ($Mode -eq "bridge") {
 
     $apiKey = ""
     if ($needKey) {
-        $apiKey = Read-Host "Вставь API-ключ (или нажми Enter, чтобы ввести позже в Config)"
+        $apiKey = Read-Host "Вставь API-ключ (или нажми Enter, чтобы ввести позже в Настройках)"
     }
 
+    $trimmedKey = if ($apiKey) { $apiKey.Trim() } else { "" }
     $configObj = [ordered]@{
-        provider                 = "openai_compat"
-        bridgeHost               = "127.0.0.1"
-        bridgePort               = 18765
-        autoStartBridge          = $false
-        allowGameDirRead         = $false
+        provider                  = "openai_compat"
+        directServicePreset       = $presetKey
+        bridgeHost                = "127.0.0.1"
+        bridgePort                = 18765
+        autoStartBridge           = $false
+        allowGameDirRead          = $false
         attachScreenshotByDefault = $false
-        maxScreenshotWidth       = 1280
-        screenshotJpegQuality    = 0.8
-        customBridgeCommand      = ""
-        systemPromptExtra        = ""
-        model                    = ""
-        apiKey                   = ""
-        openaiBaseUrl            = $baseUrl
-        openaiApiKey             = $apiKey.Trim()
-        openaiModel              = $modelName
+        maxScreenshotWidth        = 1280
+        screenshotJpegQuality     = 0.8
+        customBridgeCommand       = ""
+        systemPromptExtra         = ""
+        model                     = ""
+        apiKey                    = ""
+        openaiBaseUrl             = $baseUrl
+        openaiApiKey              = $trimmedKey
+        openaiModel               = $modelName
+        firstLaunch               = ($needKey -and [string]::IsNullOrWhiteSpace($trimmedKey))
     }
-    $configObj | ConvertTo-Json -Depth 4 | Set-Content -Path $cfgFile -Encoding UTF8
+    Write-Utf8NoBom -Path $cfgFile -Content ($configObj | ConvertTo-Json -Depth 4)
     Write-Host "[OK] Создан config.json ($baseUrl, $modelName)" -ForegroundColor Green
 }
 

@@ -22,6 +22,8 @@ data class ChatMessage(
     val role: ChatRole,
     val content: StringBuilder,
     val attachments: AttachedContext? = null,
+    val actions: List<ErrorAction> = emptyList(),
+    val rawError: String? = null,
 )
 
 data class QueuedPrompt(
@@ -65,6 +67,18 @@ object ChatHistoryStore {
 
     fun add(role: ChatRole, text: String, attachments: AttachedContext? = null): ChatMessage {
         val msg = ChatMessage(role, StringBuilder(text), attachments)
+        messages.add(msg)
+        return msg
+    }
+
+    fun addError(rawError: String): ChatMessage {
+        val parsed = ErrorParser.parse(rawError)
+        val msg = ChatMessage(
+            role = ChatRole.ERROR,
+            content = StringBuilder(parsed.message),
+            actions = parsed.actions,
+            rawError = parsed.rawError,
+        )
         messages.add(msg)
         return msg
     }
@@ -189,8 +203,7 @@ object ChatHistoryStore {
                 activeAssistantMsg = null
                 if (!receivedAnyToken) {
                     messages.remove(assistantMsg)
-                    val errText = Component.translatable("screen.agyassistant.err.request_failed", "Empty response (try Retry/Reset)").string
-                    add(ChatRole.ERROR, errText)
+                    addError("Empty response")
                 }
                 activeScreen?.onStreamFinished()
                 notifyOutsideChat(error = !receivedAnyToken)
@@ -210,8 +223,7 @@ object ChatHistoryStore {
                 if (!receivedAnyToken) {
                     messages.remove(assistantMsg)
                 }
-                val errText = Component.translatable("screen.agyassistant.err.request_failed", err).string
-                add(ChatRole.ERROR, errText)
+                addError(err)
                 activeScreen?.onStreamFinished()
                 notifyOutsideChat(error = true)
             }

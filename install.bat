@@ -1,4 +1,5 @@
 @echo off
 chcp 65001 >nul
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+cd /d "%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create([System.IO.File]::ReadAllText('%~dp0install.ps1', [System.Text.Encoding]::UTF8)))"
 pause

@@ -505,10 +505,7 @@ class AssistantScreen(
 
     private fun captureScreenshotNow() {
         if (ModConfig.data.privacyBlockScreenshots) {
-            ChatHistoryStore.add(
-                ChatRole.ERROR,
-                Component.translatable("screen.agyassistant.msg.shots_blocked").string,
-            )
+            ChatHistoryStore.addError("shots_blocked")
             rebuildMessageFeed()
             focusPromptInput()
             return
@@ -563,15 +560,9 @@ class AssistantScreen(
 
         if (!bridgeOnline) {
             if (ModConfig.data.provider == "openai_compat") {
-                ChatHistoryStore.add(
-                    ChatRole.ERROR,
-                    Component.translatable("screen.agyassistant.err.direct_unconfigured").string,
-                )
+                ChatHistoryStore.addError("direct_unconfigured")
             } else {
-                ChatHistoryStore.add(
-                    ChatRole.ERROR,
-                    Component.translatable("screen.agyassistant.err.bridge_offline", ModConfig.data.bridgePort).string,
-                )
+                ChatHistoryStore.addError("bridge_offline")
             }
             rebuildMessageFeed()
             refreshBridgeStatus()
@@ -966,7 +957,80 @@ class AssistantScreen(
                     shadow = false,
                 )
                 body.horizontalSizing(Sizing.fill(100))
+                if (msg.role == ChatRole.ERROR && !msg.rawError.isNullOrBlank()) {
+                    body.tooltip(Component.translatable("screen.agyassistant.err.raw_tooltip", msg.rawError.take(260)))
+                }
                 card.child(body)
+
+                if (msg.role == ChatRole.ERROR && msg.actions.isNotEmpty()) {
+                    val visibleActions = msg.actions.filter { action ->
+                        action !is ErrorAction.Retry || ChatHistoryStore.canRegenerate()
+                    }
+                    if (visibleActions.isNotEmpty()) {
+                        val actionWrapper = Containers.verticalFlow(Sizing.fill(100), Sizing.content())
+                        actionWrapper.gap(3)
+                        actionWrapper.margins(Insets.top(3))
+
+                        val linkNormal = Surface.flat(0xCC1E3A5F.toInt()).and(Surface.outline(0xFF3B82F6.toInt()))
+                        val linkHover = Surface.flat(0xEE2563EB.toInt()).and(Surface.outline(0xFF93C5FD.toInt()))
+                        val secondaryNormal = Surface.flat(0xCC1E293B.toInt()).and(Surface.outline(0xFF64748B.toInt()))
+                        val secondaryHover = Surface.flat(0xEE334155.toInt()).and(Surface.outline(0xFF94A3B8.toInt()))
+
+                        val font = Minecraft.getInstance().font
+                        val maxRowW = ((messagesScroll?.width() ?: 320) - 34).coerceAtLeast(160)
+                        var currentRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content()).apply { gap(4) }
+                        var currentRowW = 0
+
+                        for (action in visibleActions) {
+                            val labelStr = action.label.string
+                            val estW = (font.width(labelStr) * 0.80f).toInt() + 16
+                            if (currentRowW > 0 && currentRowW + estW > maxRowW) {
+                                actionWrapper.child(currentRow)
+                                currentRow = Containers.horizontalFlow(Sizing.fill(100), Sizing.content()).apply { gap(4) }
+                                currentRowW = 0
+                            }
+                            val isPrimary = action is ErrorAction.OpenUrl
+                            val normalSurf = if (isPrimary) linkNormal else secondaryNormal
+                            val hoverSurf = if (isPrimary) linkHover else secondaryHover
+
+                            val btn = Containers.horizontalFlow(Sizing.content(), Sizing.content())
+                            btn.surface(normalSurf)
+                            btn.padding(Insets.of(3, 3, 6, 6))
+                            btn.verticalAlignment(VerticalAlignment.CENTER)
+                            btn.cursorStyle(CursorStyle.HAND)
+                            if (action is ErrorAction.OpenUrl) {
+                                btn.tooltip(Component.literal(action.url))
+                            }
+                            btn.child(
+                                ScaledLabelComponent(
+                                    text = action.label,
+                                    scale = 0.78f,
+                                    defaultColor = 0xF8FAFC,
+                                    shadow = false,
+                                )
+                            )
+                            btn.mouseEnter().subscribe { btn.surface(hoverSurf) }
+                            btn.mouseLeave().subscribe { btn.surface(normalSurf) }
+                            btn.mouseDown().subscribe { _, _, button ->
+                                if (button == 0) {
+                                    when (action) {
+                                        is ErrorAction.OpenUrl -> ConfirmLinkScreen.confirmLinkNow(this, action.url)
+                                        is ErrorAction.OpenSettings -> Minecraft.getInstance().setScreen(SettingsScreen(this, action.tab))
+                                        is ErrorAction.Retry -> ChatHistoryStore.regenerateLast()
+                                        is ErrorAction.ResetChat -> confirmResetChat()
+                                    }
+                                    true
+                                } else false
+                            }
+                            currentRow.child(btn)
+                            currentRowW += estW + 4
+                        }
+                        if (currentRowW > 0) {
+                            actionWrapper.child(currentRow)
+                        }
+                        card.child(actionWrapper)
+                    }
+                }
             }
 
             if (msg.role == ChatRole.ASSISTANT) {

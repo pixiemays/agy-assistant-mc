@@ -24,12 +24,16 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.ConfirmLinkScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceLocation
 
-class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
+class SettingsScreen(
+    private val parent: Screen,
+    initialTab: Tab = Tab.CONNECTION,
+) : BaseOwoScreen<FlowLayout>() {
 
-    private enum class Tab { CONNECTION, BEHAVIOR, ADVANCED }
+    enum class Tab { CONNECTION, BEHAVIOR, ADVANCED }
 
-    private var activeTab: Tab = Tab.CONNECTION
+    private var activeTab: Tab = initialTab
     private var selectedProvider: String = ModConfig.data.provider
     private var currentPreset: DirectServicePreset = DirectServicePreset.byKey(ModConfig.data.directServicePreset)
 
@@ -54,16 +58,16 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
 
     private class CompactCheckbox(translationKey: String, initial: Boolean) {
         private var checked: Boolean = initial
-        private val box = Containers.horizontalFlow(Sizing.fixed(10), Sizing.fixed(10)).apply {
+        private val box = Containers.horizontalFlow(Sizing.fixed(11), Sizing.fixed(11)).apply {
             horizontalAlignment(HorizontalAlignment.CENTER)
             verticalAlignment(VerticalAlignment.CENTER)
         }
-        private val checkMark = ScaledLabelComponent(
-            text = Component.literal("✓"),
-            scale = 0.78f,
-            defaultColor = 0xFFFFFF,
-            shadow = false,
-        )
+        private val checkIcon = Components.texture(
+            ResourceLocation.fromNamespaceAndPath("agyassistant", "textures/gui/check.png"),
+            0, 0, 16, 16, 16, 16,
+        ).apply {
+            sizing(Sizing.fixed(8), Sizing.fixed(8))
+        }
 
         val view: FlowLayout = Containers.horizontalFlow(Sizing.fill(100), Sizing.content()).apply {
             verticalAlignment(VerticalAlignment.CENTER)
@@ -97,8 +101,8 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         private fun syncBox() {
             box.clearChildren()
             if (checked) {
-                box.surface(Surface.flat(0xFF2563EB.toInt()).and(Surface.outline(0xFF60A5FA.toInt())))
-                box.child(checkMark)
+                box.surface(Surface.flat(0xFF0F172A.toInt()).and(Surface.outline(0xFF4ADE80.toInt())))
+                box.child(checkIcon)
             } else {
                 box.surface(Surface.flat(0xCC0F172A.toInt()).and(Surface.outline(0xFF475569.toInt())))
             }
