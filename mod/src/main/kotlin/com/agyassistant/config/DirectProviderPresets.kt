@@ -18,7 +18,7 @@ enum class DirectServicePreset(
         key = "openrouter",
         translationKey = "screen.agyassistant.settings.service.openrouter",
         baseUrl = "https://openrouter.ai/api/v1",
-        defaultModel = "qwen/qwen3-235b-a22b:free",
+        defaultModel = "openrouter/free",
         keyUrl = "https://openrouter.ai/settings/keys",
     ),
     GROQ(

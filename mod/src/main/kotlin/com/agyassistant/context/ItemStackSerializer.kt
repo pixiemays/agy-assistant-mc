@@ -47,6 +47,7 @@ object ItemStackSerializer {
             components = componentsMap,
             tooltip = tooltipLines,
             tags = tags,
+            recipes = RecipeCollector.collectFor(stack),
             iconStack = stack.copyWithCount(1),
         )
     }

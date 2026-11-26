@@ -29,7 +29,7 @@ object AssistantNotifications {
     /** Vanilla HUD layers render with growing z offsets (hotbar ~400). Draw above them all. */
     private const val NOTIFICATION_Z = 3000f
 
-    enum class Kind { ANSWER, ERROR }
+    enum class Kind { ANSWER, ERROR, UPDATE }
 
     private class Notification(val kind: Kind, val title: String, val body: String) {
         val startMs = System.currentTimeMillis()
@@ -62,6 +62,7 @@ object AssistantNotifications {
         val titleKey = when (kind) {
             Kind.ANSWER -> "screen.agyassistant.toast.answer_title"
             Kind.ERROR -> "screen.agyassistant.toast.error_title"
+            Kind.UPDATE -> "screen.agyassistant.toast.update_title"
         }
         current = Notification(
             kind = kind,
@@ -70,6 +71,22 @@ object AssistantNotifications {
                 "screen.agyassistant.toast.answer_body",
                 KeyBindings.OPEN_CHAT.translatedKeyMessage,
             ).string,
+        )
+    }
+
+    fun showUpdate(version: String) {
+        current = Notification(
+            kind = Kind.UPDATE,
+            title = Component.translatable("screen.agyassistant.toast.update_title", version).string,
+            body = Component.translatable("screen.agyassistant.toast.update_body").string,
+        )
+    }
+
+    fun showUpdatedAtLaunch(version: String) {
+        current = Notification(
+            kind = Kind.UPDATE,
+            title = Component.translatable("screen.agyassistant.toast.updated_launch_title", version).string,
+            body = Component.translatable("screen.agyassistant.toast.updated_launch_body").string,
         )
     }
 
@@ -92,10 +109,12 @@ object AssistantNotifications {
         val accentRgb = when (note.kind) {
             Kind.ANSWER -> 0x4ADE80
             Kind.ERROR -> 0xEF4444
+            Kind.UPDATE -> 0x38BDF8
         }
         val titleRgb = when (note.kind) {
             Kind.ANSWER -> 0x86EFAC
             Kind.ERROR -> 0xFCA5A5
+            Kind.UPDATE -> 0x7DD3FC
         }
 
         val dotW = font.width("●")

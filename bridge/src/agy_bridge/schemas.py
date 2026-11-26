@@ -26,6 +26,7 @@ class ItemData(BaseModel):
     components: dict[str, Any] = Field(default_factory=dict)
     tooltip: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    recipes: list[str] = Field(default_factory=list)
 
 
 class ChatRequest(BaseModel):

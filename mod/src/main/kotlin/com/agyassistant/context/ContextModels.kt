@@ -26,6 +26,7 @@ data class ItemInfo(
     val components: Map<String, String> = emptyMap(),
     val tooltip: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
+    val recipes: List<String> = emptyList(),
     @Transient val iconStack: ItemStack? = null,
 )
 

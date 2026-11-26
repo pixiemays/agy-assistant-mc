@@ -57,6 +57,14 @@
                                     </sizing>
                                 </flow-layout>
 
+                                <button id="help-button">
+                                    <text translate="true">screen.agyassistant.btn.help</text>
+                                    <sizing>
+                                        <horizontal method="fixed">16</horizontal>
+                                        <vertical method="fixed">14</vertical>
+                                    </sizing>
+                                </button>
+
                                 <button id="reset-button">
                                     <text translate="true">screen.agyassistant.btn.reset</text>
                                     <sizing>

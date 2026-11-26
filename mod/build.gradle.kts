@@ -111,3 +111,28 @@ tasks.withType<ProcessResources>().configureEach {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
+
+val loaderSourceSet = sourceSets.create("loader") {
+    compileClasspath += sourceSets.main.get().compileClasspath
+}
+
+val loaderJar = tasks.register<Jar>("loaderJar") {
+    dependsOn(tasks.jar)
+    archiveBaseName.set("${modId}-loader")
+    archiveVersion.set("")
+    from(loaderSourceSet.output)
+    from(tasks.jar.flatMap { it.archiveFile }) {
+        into("META-INF/agy-bundled")
+    }
+    manifest {
+        attributes(
+            "Automatic-Module-Name" to "${modGroupId}.loader",
+            "Implementation-Title" to "${project.property("mod_name")} Auto-Updater Loader",
+            "Implementation-Version" to modVersion,
+        )
+    }
+}
+
+tasks.named("build") {
+    dependsOn(loaderJar)
+}

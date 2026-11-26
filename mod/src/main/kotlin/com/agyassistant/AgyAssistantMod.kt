@@ -3,6 +3,7 @@ package com.agyassistant
 import com.agyassistant.config.ModConfig
 import com.agyassistant.input.KeyBindings
 import com.agyassistant.network.BridgeProcessManager
+import com.agyassistant.network.GitHubUpdater
 import com.agyassistant.ui.AssistantNotifications
 import com.agyassistant.ui.SettingsScreen
 import net.neoforged.fml.ModLoadingContext
@@ -38,6 +39,15 @@ object AgyAssistantMod {
     }
 
     private fun onClientSetup(event: FMLClientSetupEvent) {
+        GitHubUpdater.cleanupStalePending()
+        val updatedAtLaunch = System.getProperty("agyassistant.loader.updated")?.trim().orEmpty()
+        if (updatedAtLaunch.isNotEmpty()) {
+            net.minecraft.client.Minecraft.getInstance().execute {
+                AssistantNotifications.showUpdatedAtLaunch(updatedAtLaunch)
+            }
+        } else if (!GitHubUpdater.isManagedByLoader() && ModConfig.data.autoUpdate) {
+            GitHubUpdater.checkAndDownloadAsync(manual = false)
+        }
         if (ModConfig.data.provider != "openai_compat" && ModConfig.data.autoStartBridge) {
             BridgeProcessManager.startIfNeededAsync()
         }

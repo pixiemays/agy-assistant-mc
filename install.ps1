@@ -37,8 +37,8 @@ function Download-ReleaseAsset {
 
 function Find-ModJar {
     $candidates = @(
-        (Join-Path $ScriptRoot "mod\build\libs\agyassistant-0.2.0.jar"),
-        (Join-Path $ScriptRoot "agyassistant-0.2.0.jar")
+        (Join-Path $ScriptRoot "mod\build\libs\agyassistant-loader.jar"),
+        (Join-Path $ScriptRoot "agyassistant-loader.jar")
     )
     foreach ($c in $candidates) {
         if (Test-Path $c) { return $c }
@@ -50,7 +50,11 @@ function Find-ModJar {
         $buildJar = Get-ChildItem -Path $buildDir -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($buildJar) { return $buildJar.FullName }
     }
-    return Download-ReleaseAsset -Pattern "agyassistant-*.jar" -DisplayName "agyassistant.jar"
+    try {
+        return Download-ReleaseAsset -Pattern "agyassistant-loader.jar" -DisplayName "agyassistant-loader.jar"
+    } catch {
+        return Download-ReleaseAsset -Pattern "agyassistant-*.jar" -DisplayName "agyassistant.jar"
+    }
 }
 
 function Find-BridgeExe {
@@ -173,7 +177,8 @@ New-Item -ItemType Directory -Force -Path $cfgDir | Out-Null
 Ensure-ModrinthDep -ModsDir $modsDir -Pattern "*kotlinforforge*" -ProjectSlug "kotlin-for-forge" -DisplayName "Kotlin for Forge"
 Ensure-ModrinthDep -ModsDir $modsDir -Pattern "*owo-lib*" -ProjectSlug "owo-lib" -DisplayName "oωo-lib"
 
-# 2. Сам мод
+# 2. Сам мод (удаляем старые версии agyassistant-*.jar чтобы не было дубликата)
+Get-ChildItem -Path $modsDir -Filter "agyassistant-*.jar" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 Copy-Item -Path $modJar -Destination (Join-Path $modsDir (Split-Path $modJar -Leaf)) -Force
 Write-Host "[OK] Установлен мод: $(Split-Path $modJar -Leaf)" -ForegroundColor Green
 
@@ -202,13 +207,13 @@ if ($Mode -eq "bridge") {
     Write-Host "[OK] Установлен agy-bridge.exe" -ForegroundColor Green
 } else {
     Write-Host "`nВыбери пресет API (можно поменять потом в игре через Config):" -ForegroundColor White
-    Write-Host "  [1] OpenRouter (бесплатный Qwen3 :free)"
+    Write-Host "  [1] OpenRouter (бесплатный openrouter/free — автовыбор модели)"
     Write-Host "  [2] Groq (быстрый бесплатный Qwen3-32B)"
     Write-Host "  [3] Ollama (локально на своей видеокарте, без ключа)"
     $p = Read-Host "Пресет [1/2/3]"
 
     $baseUrl = "https://openrouter.ai/api/v1"
-    $modelName = "qwen/qwen3-235b-a22b:free"
+    $modelName = "openrouter/free"
     $needKey = $true
 
     if ($p -eq "2") {

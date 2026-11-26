@@ -23,11 +23,12 @@ data class ModConfigData(
     var apiKey: String = "",
     var openaiBaseUrl: String = "https://openrouter.ai/api/v1",
     var openaiApiKey: String = "",
-    var openaiModel: String = "qwen/qwen3-235b-a22b:free",
+    var openaiModel: String = "openrouter/free",
     var openaiFallbackModels: String = "",
     var openaiProxyUrl: String = "",
     var directServicePreset: String = DirectServicePreset.DEFAULT.key,
     var firstLaunch: Boolean = true,
+    var autoUpdate: Boolean = true,
     var privacyStripCoordinates: Boolean = false,
     var privacyBlockScreenshots: Boolean = false,
 )
@@ -67,7 +68,14 @@ object ModConfig {
                         data.openaiFallbackModels = parts.drop(1).joinToString(",")
                     }
                 }
-                data.firstLaunch = false
+                // Migrate deprecated default model to OpenRouter's free auto-router
+                if (data.openaiModel.equals("qwen/qwen3-235b-a22b:free", ignoreCase = true)) {
+                    data.openaiModel = "openrouter/free"
+                }
+                // Only mark firstLaunch=false for legacy configs that predate the field
+                if (fileObj == null || !fileObj.has("firstLaunch")) {
+                    data.firstLaunch = false
+                }
                 save()
             } else {
                 save()

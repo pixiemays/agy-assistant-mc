@@ -86,6 +86,10 @@ def _format_item(item: ItemData) -> str:
         lines.append(f"- Data Components: `{comp_json}`")
     if item.tags:
         lines.append(f"- Tags: {', '.join(item.tags[:20])}")
+    if item.recipes:
+        lines.append("- Actual in-game recipes:")
+        for r in item.recipes[:5]:
+            lines.append(f"  - {r}")
     return "\n".join(lines)
 
 

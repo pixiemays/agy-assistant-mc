@@ -76,8 +76,8 @@ jobs:
       - name: Package zip bundles
         run: |
           mkdir -p bundle-direct bundle-full
-          cp install.bat install.ps1 dist-assets/agyassistant-*.jar bundle-direct/
-          cp install.bat install.ps1 dist-assets/agyassistant-*.jar dist-assets/agy-bridge.exe bundle-full/
+          cp install.bat install.ps1 dist-assets/agyassistant-loader.jar bundle-direct/
+          cp install.bat install.ps1 dist-assets/agyassistant-loader.jar dist-assets/agy-bridge.exe bundle-full/
           (cd bundle-direct && zip -r ../dist-assets/agy-assistant-direct.zip .)
           (cd bundle-full && zip -r ../dist-assets/agy-assistant-full-windows.zip .)
           ls -lh dist-assets/

@@ -138,7 +138,8 @@ object OpenAiCompatClient {
             403 -> "${Component.translatable("screen.agyassistant.connection.region_blocked").string} " +
                 Component.translatable("screen.agyassistant.connection.vpn_hint").string
             404 -> when {
-                lowerBody.contains("no endpoints found") && model.contains(":free") ->
+                lowerBody.contains("no endpoints found") &&
+                    (model.contains(":free") || model.equals("openrouter/free", ignoreCase = true)) ->
                     Component.translatable("screen.agyassistant.connection.free_no_endpoints").string
                 lowerBody.contains("model") && model.isNotBlank() ->
                     Component.translatable("screen.agyassistant.connection.model_unavailable", model).string
@@ -679,6 +680,12 @@ object OpenAiCompatClient {
         }
         if (i.components.isNotEmpty()) {
             appendLine("Components: ${i.components}")
+        }
+        if (i.recipes.isNotEmpty()) {
+            appendLine("Actual in-game recipes:")
+            for (r in i.recipes) {
+                appendLine("  - $r")
+            }
         }
     }.trim()
 }
