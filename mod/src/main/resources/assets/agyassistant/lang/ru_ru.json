@@ -50,7 +50,6 @@
   "screen.agyassistant.shot.preview_hint": "%d×%d — Клик или Esc для закрытия",
   "screen.agyassistant.action.copy": "Скопировать текст",
   "screen.agyassistant.action.quote": "Процитировать в новом вопросе",
-  "screen.agyassistant.action.share_chat": "Отправить краткий ответ в чат сервера",
   "screen.agyassistant.action.edit": "Вставить в поле ввода",
   "screen.agyassistant.action.retry": "Перегенерировать ответ",
   "screen.agyassistant.btn.copy_short": "Копир.",

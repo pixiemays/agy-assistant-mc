@@ -523,22 +523,6 @@ class AssistantScreen(
         }
     }
 
-    private fun shareReplyToGameChat(rawMarkdown: String) {
-        val conn = Minecraft.getInstance().player?.connection ?: return
-        val plain = rawMarkdown
-            .replace(Regex("```[\\s\\S]*?```"), " [code] ")
-            .replace(Regex("\\[([^\\]]+)]\\([^)]+\\)"), "$1")
-            .replace(Regex("[*_`#>]"), "")
-            .replace(Regex("\\s*\\r?\\n+\\s*"), " | ")
-            .replace(Regex("\\s{2,}"), " ")
-            .trim()
-        if (plain.isEmpty()) return
-        val prefix = "[AI] "
-        val maxBody = 240 - prefix.length
-        val body = if (plain.length > maxBody) plain.take(maxBody - 1).trimEnd() + "…" else plain
-        conn.sendChat(prefix + body)
-    }
-
     private fun confirmResetChat() {
         val mc = Minecraft.getInstance()
         mc.setScreen(
@@ -903,30 +887,6 @@ class AssistantScreen(
                     context.quote = QuoteInfo(author = authorName, text = cleanCopyText)
                     rebuildChips()
                     focusPromptInput()
-                }
-
-                if (msg.role == ChatRole.ASSISTANT) {
-                    val shareBtn = Containers.horizontalFlow(Sizing.fixed(13), Sizing.fixed(13))
-                    shareBtn.horizontalAlignment(io.wispforest.owo.ui.core.HorizontalAlignment.CENTER)
-                    shareBtn.verticalAlignment(VerticalAlignment.CENTER)
-                    shareBtn.cursorStyle(CursorStyle.HAND)
-                    shareBtn.tooltip(Component.translatable("screen.agyassistant.action.share_chat"))
-                    shareBtn.child(ScaledLabelComponent(Component.literal("↗"), scale = 0.85f, defaultColor = 0x94A3B8, shadow = false))
-                    shareBtn.mouseEnter().subscribe { shareBtn.surface(Surface.flat(0x55334155)) }
-                    shareBtn.mouseLeave().subscribe { shareBtn.surface(Surface.BLANK) }
-                    shareBtn.mouseDown().subscribe { _, _, button ->
-                        if (button == 0) {
-                            shareReplyToGameChat(cleanCopyText)
-                            shareBtn.clearChildren()
-                            val okTex = ResourceLocation.fromNamespaceAndPath("agyassistant", "textures/gui/check.png")
-                            val okIcon = Components.texture(okTex, 0, 0, 16, 16, 16, 16)
-                            okIcon.sizing(Sizing.fixed(9), Sizing.fixed(9))
-                            shareBtn.child(okIcon)
-                            focusPromptInput()
-                            true
-                        } else false
-                    }
-                    headerRow.child(shareBtn)
                 }
 
                 if (msg.role == ChatRole.USER) {

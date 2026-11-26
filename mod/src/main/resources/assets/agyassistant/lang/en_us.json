@@ -50,7 +50,6 @@
   "screen.agyassistant.shot.preview_hint": "%d×%d — Click or Esc to close",
   "screen.agyassistant.action.copy": "Copy message",
   "screen.agyassistant.action.quote": "Quote in next question",
-  "screen.agyassistant.action.share_chat": "Share short summary to server chat",
   "screen.agyassistant.action.edit": "Reuse in input box",
   "screen.agyassistant.action.retry": "Regenerate reply",
   "screen.agyassistant.btn.copy_short": "Copy",

@@ -52,6 +52,61 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         }
     }
 
+    private class CompactCheckbox(translationKey: String, initial: Boolean) {
+        private var checked: Boolean = initial
+        private val box = Containers.horizontalFlow(Sizing.fixed(10), Sizing.fixed(10)).apply {
+            horizontalAlignment(HorizontalAlignment.CENTER)
+            verticalAlignment(VerticalAlignment.CENTER)
+        }
+        private val checkMark = ScaledLabelComponent(
+            text = Component.literal("✓"),
+            scale = 0.78f,
+            defaultColor = 0xFFFFFF,
+            shadow = false,
+        )
+
+        val view: FlowLayout = Containers.horizontalFlow(Sizing.fill(100), Sizing.content()).apply {
+            verticalAlignment(VerticalAlignment.CENTER)
+            gap(5)
+            padding(Insets.of(2, 2, 2, 2))
+            cursorStyle(CursorStyle.HAND)
+            child(box)
+            child(
+                ScaledLabelComponent(
+                    text = Component.translatable(translationKey),
+                    scale = 0.80f,
+                    defaultColor = 0xE2E8F0,
+                    shadow = false,
+                ).apply { horizontalSizing(Sizing.expand(100)) }
+            )
+            mouseEnter().subscribe { surface(Surface.flat(0x33334155)) }
+            mouseLeave().subscribe { surface(Surface.BLANK) }
+            mouseDown().subscribe { _, _, button ->
+                if (button == 0) {
+                    checked = !checked
+                    syncBox()
+                    true
+                } else false
+            }
+        }
+
+        init {
+            syncBox()
+        }
+
+        private fun syncBox() {
+            box.clearChildren()
+            if (checked) {
+                box.surface(Surface.flat(0xFF2563EB.toInt()).and(Surface.outline(0xFF60A5FA.toInt())))
+                box.child(checkMark)
+            } else {
+                box.surface(Surface.flat(0xCC0F172A.toInt()).and(Surface.outline(0xFF475569.toInt())))
+            }
+        }
+
+        fun selected(): Boolean = checked
+    }
+
     private fun fieldLabel(translationKey: String): ScaledLabelComponent =
         ScaledLabelComponent(
             text = Component.translatable(translationKey),
@@ -95,7 +150,7 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
         topBar.child(
             ScaledLabelComponent(
                 text = Component.translatable("screen.agyassistant.btn.settings"),
-                scale = 0.95f,
+                scale = 1.0f,
                 defaultColor = 0xF8FAFC,
                 shadow = false,
             )
@@ -282,13 +337,13 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
             (this as OwoComponent).verticalSizing(Sizing.fixed(15))
         }
 
-        val autoStartCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.auto_start")).checked(cfg.autoStartBridge)
-        val readDirCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.read_dir")).checked(cfg.allowGameDirRead)
-        val defaultShotCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.default_shot")).checked(cfg.attachScreenshotByDefault)
-        val clarifyCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.clarify_vague")).checked(cfg.clarifyVagueQuestions)
-        val privacyCoordsCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.privacy_strip_coords")).checked(cfg.privacyStripCoordinates)
-        val privacyShotsCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.privacy_block_shots")).checked(cfg.privacyBlockScreenshots)
-        val autoUpdateCheck = Components.checkbox(Component.translatable("screen.agyassistant.settings.auto_update")).checked(cfg.autoUpdate)
+        val autoStartCheck = CompactCheckbox("screen.agyassistant.settings.auto_start", cfg.autoStartBridge)
+        val readDirCheck = CompactCheckbox("screen.agyassistant.settings.read_dir", cfg.allowGameDirRead)
+        val defaultShotCheck = CompactCheckbox("screen.agyassistant.settings.default_shot", cfg.attachScreenshotByDefault)
+        val clarifyCheck = CompactCheckbox("screen.agyassistant.settings.clarify_vague", cfg.clarifyVagueQuestions)
+        val privacyCoordsCheck = CompactCheckbox("screen.agyassistant.settings.privacy_strip_coords", cfg.privacyStripCoordinates)
+        val privacyShotsCheck = CompactCheckbox("screen.agyassistant.settings.privacy_block_shots", cfg.privacyBlockScreenshots)
+        val autoUpdateCheck = CompactCheckbox("screen.agyassistant.settings.auto_update", cfg.autoUpdate)
 
         val updateResultLabel = ScaledLabelComponent(
             text = Component.empty(),
@@ -477,15 +532,15 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
                     }
                 }
                 Tab.BEHAVIOR -> {
-                    form.child(defaultShotCheck as OwoComponent)
-                    form.child(clarifyCheck as OwoComponent)
-                    form.child(privacyCoordsCheck as OwoComponent)
-                    form.child(privacyShotsCheck as OwoComponent)
+                    form.child(defaultShotCheck.view)
+                    form.child(clarifyCheck.view)
+                    form.child(privacyCoordsCheck.view)
+                    form.child(privacyShotsCheck.view)
                     form.child(fieldLabel("screen.agyassistant.settings.extra_prompt"))
                     form.child(extraPromptInput as OwoComponent)
                 }
                 Tab.ADVANCED -> {
-                    form.child(autoUpdateCheck as OwoComponent)
+                    form.child(autoUpdateCheck.view)
                     form.child(checkUpdateBtn as OwoComponent)
                     form.child(updateResultLabel)
                     form.child(fieldLabel("screen.agyassistant.settings.provider_mode"))
@@ -499,8 +554,8 @@ class SettingsScreen(private val parent: Screen) : BaseOwoScreen<FlowLayout>() {
                         form.child(fallbackListContainer)
                         form.child(addFallbackBtn as OwoComponent)
                     } else {
-                        form.child(autoStartCheck as OwoComponent)
-                        form.child(readDirCheck as OwoComponent)
+                        form.child(autoStartCheck.view)
+                        form.child(readDirCheck.view)
                     }
                 }
             }
