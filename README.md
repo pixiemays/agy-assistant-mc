@@ -7,9 +7,9 @@
 ## Быстрый старт — 3 шага
 
 1. **Установи мод** (см. [Установка](#установка)).
-2. Зайди в мир и нажми **`G`** — откроется чат. При первом запуске он сам подскажет, что делать дальше.
-3. Нажми **`Config`** в правом верхнем углу чата:
-   - **Сервис** — выбери, где брать ИИ: `Gemini` / `OpenRouter` / `Groq` / `Ollama`. Base URL и модель подставятся сами.
+2. Зайди в мир и нажми **`G`** — откроется чат. При первом запуске покажется встроенный гайд (всегда можно открыть заново кнопкой **`?`**).
+3. Нажми **`Настройки`** в правом верхнем углу чата:
+   - **Сервис** — по умолчанию выбран `OpenRouter` с бесплатным авто-роутером `openrouter/free`. Также доступны `Gemini` / `Groq` / `Ollama`. Base URL и модель подставятся сами.
    - **Получить ключ** — откроется страница выбранного сервиса, где выдать себе ключ.
    - Вставь ключ в поле **API-ключ** → **Сохранить**.
    - **Проверить подключение** — мод отправит реальный тестовый запрос каждой модели цепочки и скажет по-русски, всё ли ок: `OK — сервис отвечает (задержка N мс)` либо понятную причину ошибки (неверный ключ, блокировка по региону, лимит, модель не найдена).
@@ -30,6 +30,7 @@
 - **Работа в фоне:** закрыл чат (`Esc`) — ответ продолжит генерироваться, а когда придёт, справа снизу выскочит уведомление в стиле мода (со звуком). Никакого «сиди и жди».
 - **Очередь вопросов:** можно писать следующие, пока ИИ думает — уйдут по порядку.
 - **Запасные модели (fallback):** если основная модель упала или упёрлась в лимит, OpenRouter автоматически переключится на следующую из списка. Списком удобно управлять в настройках: «+ Добавить из списка», `×` убирает.
+- **Автообновление с GitHub при запуске:** при установке через `agyassistant-loader.jar` мод сам проверяет свежий релиз на GitHub **до загрузки сборки** и подгружает его сразу в этом же запуске (без повторного перезапуска игры). Без интернета использует локальный кеш. Отключается в **Настройки → Ещё**.
 - **Приватность:** в настройках можно запретить отправку координат мира и скриншотов — мод срежет их на уровне запроса.
 - **Прокси для API:** можно пустить через VPN только запросы к нейронке, не трогая трафик игры (см. [Если что-то не работает](#если-что-то-не-работает)).
 
@@ -50,20 +51,30 @@
 
 ## Установка
 
-### Одна команда в PowerShell
+Мод распространяется через **`agyassistant-loader.jar`** — достаточно поставить его **один раз**. При каждом запуске Minecraft он ещё до загрузки модов проверяет [GitHub Releases](https://github.com/pixiemays/agy-assistant-mc/releases/latest), сам скачивает свежую версию в `config/agyassistant/updates/` и сразу запускает её без перезапуска игры.
+
+### Способ 1: Автоустановка одной командой (Windows, рекомендуется)
+Открой PowerShell (`Win + X` → Терминал / PowerShell) и выполни:
 ```powershell
 irm https://raw.githubusercontent.com/pixiemays/agy-assistant-mc/main/install.ps1 | iex
 ```
-Скрипт сам найдёт сборки в `ElyPrismLauncher`, `PrismLauncher`, `ModrinthApp`, `CurseForge`, `ATLauncher` и `.minecraft`, скачает мод и зависимости с Releases/Modrinth.
+Скрипт сам найдёт сборки в `ElyPrismLauncher`, `PrismLauncher`, `ModrinthApp`, `CurseForge`, `ATLauncher` и `.minecraft`, удалит старую версию мода, поставит `agyassistant-loader.jar` и нужные зависимости с Modrinth.
 
-### Вручную с GitHub Releases
+### Способ 2: Готовый архив с GitHub Releases
 1. Скачай [последний Release](https://github.com/pixiemays/agy-assistant-mc/releases/latest):
-   - `agy-assistant-direct.zip` (~215 КБ) — только мод, без `.exe` (Gemini / OpenRouter / Groq / Ollama / любой OpenAI-совместимый API);
-   - `agy-assistant-full-windows.zip` (~65 МБ) — полный комплект с `agy-bridge.exe` (для Antigravity / OpenCode).
-2. Распакуй и запусти `install.bat` — сам поставит мод, зависимости и предложит режим.
+   - `agy-assistant-direct.zip` — только мод + автоустановщик, без `.exe` (OpenRouter / Gemini / Groq / Ollama);
+   - `agy-assistant-full-windows.zip` — полный комплект с `agy-bridge.exe` (для Antigravity / OpenCode).
+2. Распакуй и запусти `install.bat` — скрипт сам поставит `agyassistant-loader.jar`, зависимости и предложит режим.
 
-### Совсем вручную
-В `mods/` положи `agyassistant-0.2.0.jar`, `kotlinforforge-neoforge` (5.x) и `owo-lib-neoforge` (0.12.x). Для Antigravity/OpenCode дополнительно — `agy-bridge.exe` в `config/agyassistant/`.
+### Способ 3: Вручную (для любой ОС / лаунчера)
+1. Скачай `agyassistant-loader.jar` из [последнего Release](https://github.com/pixiemays/agy-assistant-mc/releases/latest) и положи в папку `mods/`.
+   > **Важно:** если в `mods/` раньше лежал старый `agyassistant-0.x.x.jar`, удали его — иначе NeoForge выдаст ошибку дубликата.
+2. Поставь 2 обязательные зависимости для **NeoForge 1.21.1** (если их ещё нет в сборке):
+   - [Kotlin for Forge](https://modrinth.com/mod/kotlin-for-forge) (5.x)
+   - [oωo-lib](https://modrinth.com/mod/owo-lib) (0.12.x)
+3. *(Опционально)* Для режима Antigravity / OpenCode положи `agy-bridge.exe` в `config/agyassistant/`.
+
+> **Хочешь без автообновлений?** Положи в `mods/` обычный `agyassistant-X.Y.Z.jar` вместо `agyassistant-loader.jar` или сними галочку **«Автообновление с GitHub при запуске»** во вкладке **Настройки → Ещё**.
 
 ---
 
@@ -127,11 +138,11 @@ irm https://raw.githubusercontent.com/pixiemays/agy-assistant-mc/main/install.ps
 ## Сборка из исходников
 
 ```powershell
-# Мод (JDK 21)
+# Мод + автообновлятор (JDK 21)
 $env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.12.8-hotspot'
 cd mod
 .\gradlew.bat build --no-daemon
-# Результат: mod\build\libs\agyassistant-0.1.0.jar
+# Результат: mod\build\libs\agyassistant-loader.jar и mod\build\libs\agyassistant-<version>.jar
 
 # Мост (требуется uv)
 cd bridge
